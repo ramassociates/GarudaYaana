@@ -18,11 +18,12 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Install Gradle and Generate Wrapper
+    - name: Clean Gradle Cache and Generate Wrapper
       run: |
+        rm -rf ~/.gradle/caches/
         sudo apt-get update
         sudo apt-get install -y gradle
-        gradle wrapper --gradle-version 8.2
+        gradle wrapper --gradle-version 8.7
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
@@ -35,3 +36,4 @@ jobs:
       with:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
+        
