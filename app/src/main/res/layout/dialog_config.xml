@@ -1,6 +1,4 @@
-
 <?xml version="1.0" encoding="utf-8"?>
-<!-- കോൺഫിഗ് ഷീറ്റിന്റെ മെയിൻ ലേഔട്ട് -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -11,7 +9,6 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- വെഹിക്കിൾ നമ്പർ എന്റർ ചെയ്യാനുള്ള ഫീൽഡ് -->
         <EditText
             android:id="@+id/etVehicleNumber"
             android:layout_width="match_parent"
@@ -20,8 +17,5 @@
             android:inputType="text"
             android:layout_marginBottom="12dp" />
 
-        <!-- ഭാവിയിൽ മറ്റ് ഫീൽഡുകൾ ഇവിടെ ആഡ് ചെയ്യാം -->
-
     </LinearLayout>
 </ScrollView>
-
