@@ -104,13 +104,13 @@ public class MainActivity extends AppCompatActivity {
         // ==========================================
     // PHASE 2: SMART GPS MOVEMENT THRESHOLD FILTER
     // ==========================================
-    private static final float MIN_MOVEMENT_THRESHOLD_METERS = 5.0f; // 5 മീറ്റർ പരിധി
+  /*  private static final float MIN_MOVEMENT_THRESHOLD_METERS = 5.0f; // 5 മീറ്റർ പരിധി
 
     /**
      * ജിപിഎസ് ഡ്രിഫ്റ്റ് (GPS Drift) ഒഴിവാക്കാനും ബാറ്ററി ലാഭിക്കാനുമുള്ള ഫിൽട്ടർ
      */
-    private boolean shouldProcessLocationMovement(Location newLocation) {
-        if (previousLocation == null) {
+    //private boolean shouldProcessLocationMovement(Location newLocation) {
+/*        if (previousLocation == null) {
             return true;
         }
         float distanceMeters = newLocation.distanceTo(previousLocation);
@@ -156,11 +156,11 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 if (System.currentTimeMillis() - lastMoveTimestamp >= 60000) {
                     recordIdleLocationToCSV(lat, lon, isInsideActiveTrip ? "DURING_TRIP_IDLE" : "WITHOUT_TRIP_IDLE");
-                    lastMoveTimestamp = System.currentTimeMillis();
-                }
-            }
-        }
-    }
+                    lastMoveTimestamp = System.currentTimeMillis();*/
+            //    }
+           // }
+       // }
+    //}
     
     // ==========================================
     // PHASE 1: FINANCIAL TARGET & DEFICIT ENGINE
