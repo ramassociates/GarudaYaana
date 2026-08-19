@@ -101,8 +101,6 @@ public class MainActivity extends AppCompatActivity {
     private double maxExpectedRangeKm = 200.0;
     private double fuelResetOdoMarker = 0.0;
 
-
-    
     // ==========================================
     // PHASE 1: FINANCIAL TARGET & DEFICIT ENGINE
     // ==========================================
