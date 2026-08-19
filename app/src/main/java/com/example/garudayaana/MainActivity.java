@@ -101,6 +101,67 @@ public class MainActivity extends AppCompatActivity {
     private double maxExpectedRangeKm = 200.0;
     private double fuelResetOdoMarker = 0.0;
 
+        // ==========================================
+    // PHASE 2: SMART GPS MOVEMENT THRESHOLD FILTER
+    // ==========================================
+    private static final float MIN_MOVEMENT_THRESHOLD_METERS = 5.0f; // 5 മീറ്റർ പരിധി
+
+    /**
+     * ജിപിഎസ് ഡ്രിഫ്റ്റ് (GPS Drift) ഒഴിവാക്കാനും ബാറ്ററി ലാഭിക്കാനുമുള്ള ഫിൽട്ടർ
+     */
+    private boolean shouldProcessLocationMovement(Location newLocation) {
+        if (previousLocation == null) {
+            return true;
+        }
+        float distanceMeters = newLocation.distanceTo(previousLocation);
+        
+        // വണ്ടി കുറഞ്ഞത് 5 മീറ്ററെങ്കിലും മാറിയെങ്കിൽ മാത്രം മൂവ്മെന്റ് ഔദ്യോഗികമായി രേഖപ്പെടുത്തുക
+        return distanceMeters >= MIN_MOVEMENT_THRESHOLD_METERS;
+    }
+    
+    private void processLiveLocationTelemetry(Location location, boolean isInsideActiveTrip) {
+        // ബാറ്ററി സേവിംഗിനായി ചെറിയ ജിപിഎസ് മാറ്റങ്ങൾ ഒഴിവാക്കുന്നു
+        if (!shouldProcessLocationMovement(location) && isInsideActiveTrip) {
+            return; // വണ്ടി അനങ്ങിയിട്ടില്ലെങ്കിൽ പ്രോസസ്സ് ചെയ്യാതെ വിടുക (Battery Saved!)
+        }
+
+        double lat = location.getLatitude();
+        double lon = location.getLongitude();
+
+        if (isInsideActiveTrip) {
+            logToTerminal("[GPS ACTIVE] Lat: " + String.format(Locale.US, "%.5f", lat) + " | Lon: " + String.format(Locale.US, "%.5f", lon));
+            if (previousLocation != null) {
+                double deltaKm = location.distanceTo(previousLocation) / 1000.0;
+                accumulatedDistanceKm += deltaKm;
+                tvTotalDist.setText(String.format(Locale.US, "%.1f", accumulatedDistanceKm));
+                tvOdoMeter.setText(String.format(Locale.US, "%.0f", vehicleOdoBaseline + accumulatedDistanceKm));
+                updateFuelCalculationsMetrics();
+            }
+            previousLocation = location;
+        } else {
+            if (previousLocation != null) {
+                double deltaKm = location.distanceTo(previousLocation) / 1000.0;
+                dryRunDistanceKm += deltaKm;
+                tvDryRun.setText(String.format(Locale.US, "%.1f", dryRunDistanceKm));
+                updateFuelCalculationsMetrics();
+            }
+            previousLocation = location;
+        }
+
+        if (lastIdleRecordedLocation == null) {
+            lastIdleRecordedLocation = location; lastMoveTimestamp = System.currentTimeMillis();
+        } else {
+            if (location.distanceTo(lastIdleRecordedLocation) > 10) {
+                lastIdleRecordedLocation = location; lastMoveTimestamp = System.currentTimeMillis();
+            } else {
+                if (System.currentTimeMillis() - lastMoveTimestamp >= 60000) {
+                    recordIdleLocationToCSV(lat, lon, isInsideActiveTrip ? "DURING_TRIP_IDLE" : "WITHOUT_TRIP_IDLE");
+                    lastMoveTimestamp = System.currentTimeMillis();
+                }
+            }
+        }
+    }
+    
     // ==========================================
     // PHASE 1: FINANCIAL TARGET & DEFICIT ENGINE
     // ==========================================
