@@ -288,6 +288,63 @@ public class MainActivity extends AppCompatActivity {
         btnVehicleConfig.setOnClickListener(v -> showCentralConfigLandingMenu());
         btnShareCSV.setOnClickListener(v -> dispatchShareMasterSheet());
     }
+    // ==========================================
+// CONFIG BUTTON SECTION - START
+// ഇവിടെയാണ് CONFIG ബട്ടൺ ക്ലിക്ക് ചെയ്യുമ്പോൾ 
+// ഇൻപുട്ട് ഷീറ്റ്/ഡയലോഗ് ഓപ്പൺ ആകുന്നത്.
+// ==========================================
+
+Button btnConfig = findViewById(R.id.config); // XML-ലെ CONFIG ബട്ടൺ ഐഡി
+if (btnConfig != null) {
+    btnConfig.setOnClickListener(new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            // CONFIG ക്ലിക്ക് ചെയ്യുമ്പോൾ താഴെ പറയുന്ന ഫങ്ഷൻ വർക്ക് ചെയ്യും
+            openVehicleConfigDialog();
+        }
+    });
+}
+
+// ==========================================
+// CONFIG BUTTON SECTION - END
+// ==========================================
+
+// ==========================================
+// VEHICLE CONFIG DIALOG METHOD - START
+// പുതിയ വെഹിക്കിൾ ഡീറ്റെയിൽസും കോസ്റ്റുകളും 
+// എന്റർ ചെയ്യാനുള്ള ഡയലോഗ് ഇവിടെയാണ് ക്രിയേറ്റ് ചെയ്യുന്നത്.
+// ==========================================
+
+private void openVehicleConfigDialog() {
+    // തൽക്കാലം ഇത് വർക്ക് ചെയ്യുന്നുണ്ടോ എന്ന് നോക്കാൻ ഒരു ചെറിയ ടോസ്റ്റ് മെസ്സേജ് 
+    // അല്ലെങ്കിൽ ഡയലോഗ് ബോക്സ് ഇവിടെ കൊടുക്കാം.
+    
+    android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+    builder.setTitle("GarudaYaana Vehicle Config");
+    
+    // ഇവിടെ നമുക്ക് കസ്റ്റം ലേഔട്ട് (ഇൻപുട്ട് ഫീൽഡുകൾ) പിന്നീട് അഡ്ജസ്റ്റ് ചെയ്യാം.
+    builder.setMessage("Config Input Sheet coming here. (Multiple vehicles & expenses setup)");
+    
+    builder.setPositiveButton("OK", new android.content.DialogInterface.OnClickListener() {
+        @Override
+        public void onClick(android.content.DialogInterface dialog, int which) {
+            dialog.dismiss();
+        }
+    });
+    
+    builder.setNegativeButton("Cancel", new android.content.DialogInterface.OnClickListener() {
+        @Override
+        public void onClick(android.content.DialogInterface dialog, int which) {
+            dialog.dismiss();
+        }
+    });
+    
+    builder.show();
+}
+
+// ==========================================
+// VEHICLE CONFIG DIALOG METHOD - END
+// ==========================================
 
     // Financial Calculation Methods Implementation
     private double calculateDailyFinancialTarget() {
