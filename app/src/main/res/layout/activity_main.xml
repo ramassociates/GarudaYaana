@@ -1,13 +1,177 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#121212"
+    android:padding="12dp">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <!-- Status & Target Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="GarudaYaana Ready!"
-        android:layout_centerInParent="true" />
+        android:orientation="horizontal"
+        android:weightSum="2"
+        android:paddingBottom="8dp">
 
-</RelativeLayout>
+        <TextView
+            android:id="@+id/tvVehicleStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Status: STOPPED"
+            android:textColor="#FF5252"
+            android:textSize="14sp"
+            android:textStyle="bold" />
 
+        <TextView
+            android:id="@+id/tvDaysLeft"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Days Left: 26"
+            android:textColor="#FFFFFF"
+            android:gravity="end"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <!-- Financial & Averages Panel -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="2"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:id="@+id/tvMinReqAvg"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Target: ₹0"
+            android:textColor="#00E676"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvCurrentAvg"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Current: ₹0"
+            android:textColor="#40C4FF"
+            android:gravity="end"
+            android:textSize="16sp" />
+    </LinearLayout>
+
+    <!-- Telemetry Stats Grid -->
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:columnCount="3"
+        android:alignmentMode="alignMargins"
+        android:columnOrderPreserved="false"
+        android:paddingBottom="8dp">
+
+        <TextView android:id="@+id/tvOdoMeter" android:text="Odo: 0" android:textColor="#CCCCCC" android:textSize="12sp" android:padding="4dp"/>
+        <TextView android:id="@+id/tvTotalDist" android:text="Dist: 0.0" android:textColor="#CCCCCC" android:textSize="12sp" android:padding="4dp"/>
+        <TextView android:id="@+id/tvOrdersToday" android:text="Orders: 0" android:textColor="#CCCCCC" android:textSize="12sp" android:padding="4dp"/>
+        <TextView android:id="@+id/tvWaitTime" android:text="Wait: 0H 0M" android:textColor="#CCCCCC" android:textSize="12sp" android:padding="4dp"/>
+        <TextView android:id="@+id/tvDryRun" android:text="Dry: 0.0" android:textColor="#CCCCCC" android:textSize="12sp" android:padding="4dp"/>
+        <TextView android:id="@+id/tvEarnings" android:text="Earn: ₹0" android:textColor="#FFD700" android:textSize="14sp" android:textStyle="bold" android:padding="4dp"/>
+    </GridLayout>
+
+    <!-- Fuel Metrics -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="2"
+        android:paddingBottom="8dp">
+        <TextView android:id="@+id/tvAvgFuelCons" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Fuel Cons: 0" android:textColor="#B0BEC5" android:textSize="12sp"/>
+        <TextView android:id="@+id/tvAvailFuel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Avail Fuel: 100%" android:textColor="#B0BEC5" android:gravity="end" android:textSize="12sp"/>
+    </LinearLayout>
+
+    <!-- Main Control Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="3"
+        android:paddingBottom="8dp">
+
+        <Button
+            android:id="@+id/btnAppToggle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Start App"
+            android:textSize="12sp"/>
+
+        <Button
+            android:id="@+id/btnTripToggle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Trip Toggle"
+            android:textSize="12sp"/>
+
+        <Button
+            android:id="@+id/btnExitApp"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Exit"
+            android:textSize="12sp"/>
+    </LinearLayout>
+
+    <!-- Secondary Action Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="4"
+        android:paddingBottom="8dp">
+
+        <Button android:id="@+id/btnVehicleConfig" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Config" android:textSize="10sp"/>
+        <Button android:id="@+id/btnShareCSV" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Share" android:textSize="10sp"/>
+        <Button android:id="@+id/btnTips" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="+Tip" android:textSize="10sp"/>
+        <Button android:id="@+id/btnExpense" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="+Exp" android:textSize="10sp"/>
+    </LinearLayout>
+
+    <!-- Terminal Log ScrollView -->
+    <ScrollView
+        android:id="@+id/svTerminal"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#000000"
+        android:padding="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvTerminalLog"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Garudayaana Engine Initialized..."
+                android:textColor="#00FF00"
+                android:textSize="12sp"
+                android:fontFamily="monospace"/>
+
+            <!-- Optional Train/CSV Data view if used -->
+            <TextView
+                android:id="@+id/tvTrainData"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="#FFEB3B"
+                android:textSize="12sp"
+                android:fontFamily="monospace"/>
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>
