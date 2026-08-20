@@ -4,7 +4,9 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#121212"
-    android:padding="12dp">
+    android:padding="12dp"
+    android:fitsSystemWindows="true"
+    >
 
     <!-- Status & Target Header -->
     <LinearLayout
