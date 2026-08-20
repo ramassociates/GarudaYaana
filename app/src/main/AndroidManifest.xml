@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.garudayaana">
+<!-- മൈക്ക് പെർമിഷൻ ഉറപ്പാക്കാൻ ഇത് AndroidManifest.xml-ൽ ഉണ്ടായിരിക്കണം -->
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- ലൊക്കേഷൻ, ഇന്റർനെറ്റ്, നോട്ടിഫിക്കേഷൻ പെർമിഷനുകൾ -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
