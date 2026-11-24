@@ -5,6 +5,7 @@ import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
@@ -52,6 +53,7 @@ import okhttp3.Response;
 public class MainActivity extends AppCompatActivity {
 
     private static final int PERMISSION_MASTER_CODE = 105;
+    private static final String PREFS_NAME = "GarudaYaanaShiftPrefs";
 
     // UI Elements Mapping
     private TextView tvVehicleStatus, tvDaysLeft, tvMinReqAvg, tvCurrentAvg, tvOdoMeter, tvTotalDist, tvOrdersToday, tvWaitTime, tvDryRun, tvAvgFuelCons, tvAvailFuel, tvEarnings, tvTerminalLog, tvTrainData;
@@ -65,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
     private LocationListener locationListener;
     private Location previousLocation = null;
     private SpeechRecognizer speechRecognizer;
+    private SharedPreferences shiftPrefs;
 
     // Fluid Mathematical Trackers
     private boolean isAppStarted = false;
@@ -159,6 +162,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        shiftPrefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+
         // Map Views
         tvVehicleStatus = findViewById(R.id.tvVehicleStatus);
         tvDaysLeft = findViewById(R.id.tvDaysLeft);
@@ -198,9 +203,20 @@ public class MainActivity extends AppCompatActivity {
 
         calculateRemainingWorkingDays();
         checkProfileAndInitialize();
+        restoreShiftStateFromStorage();
         triggerDynamicSystemPermissionsScan();
 
-        // 1) APP ENGINE SWITCH CONTROL (Prompts Start Odo, Fuel Tank Level & Profit Target)
+        if (isAppStarted) {
+            startIdlePassiveTrackingEngine();
+            if (isTripStarted) {
+                resumeActiveTripListener();
+            }
+        }
+        updateWaitingTimeDisplayField();
+        updateLiveDashboardMetrics();
+        refreshSystemButtonUI();
+
+        // 1) APP ENGINE SWITCH CONTROL (Stop for the day only on APP STOP)
         btnAppToggle.setOnClickListener(v -> {
             if (regNumber.isEmpty()) {
                 Toast.makeText(this, "Please configure vehicle profile mapping first!", Toast.LENGTH_LONG).show();
@@ -211,22 +227,35 @@ public class MainActivity extends AppCompatActivity {
                 showShiftStartDialog();
             } else {
                 if (isTripStarted) {
-                    Toast.makeText(this, "Stop the active trip logger first!", Toast.LENGTH_SHORT).show();
-                    return;
+                    stopGPSTrackingEngineAndTriggerVoice();
                 }
+                double shiftTotalKm = getTotalShiftKm();
+                appendTripRecordToCSVFile("DAY_SHIFT_END", dailyEarningsSum);
+                vehicleOdoBaseline += shiftTotalKm;
+
+                // Stop for the day: reset daily shift trackers & clear persisted shift state
                 isAppStarted = false;
-                vehicleOdoBaseline += (accumulatedDistanceKm + dryRunDistanceKm);
+                isTripStarted = false;
                 accumulatedDistanceKm = 0.0;
                 dryRunDistanceKm = 0.0;
+                dailyEarningsSum = 0.0;
+                dailyOrdersCount = 0;
+                dailySpotExpenses = 0.0;
+                totalWaitingTimeMs = 0;
+                tripStopTimestamp = 0;
                 previousLocation = null;
+
                 saveAdvancedProfileToCSV();
-                logToTerminal("App Status: STOPPED. Odometer & Profile saved.");
+                clearPersistedShiftState();
                 stopIdlePassiveTrackingEngine();
+                updateWaitingTimeDisplayField();
+                updateLiveDashboardMetrics();
                 refreshSystemButtonUI();
+                logToTerminal("APP STOP: Day shift closed & saved. Next start will be fresh.");
             }
         });
 
-        // 2) INTERMITTENT TOTAL REVENUE UPDATE (Recalculates Current Rate/km & Live Profit)
+        // 2) INTERMITTENT TOTAL REVENUE UPDATE (Persists immediately to storage)
         btnUpdateRevenue.setOnClickListener(v -> {
             String rawRev = etTotalRevenueInput.getText().toString().trim();
             if (rawRev.isEmpty()) {
@@ -243,27 +272,28 @@ public class MainActivity extends AppCompatActivity {
                 if (imm != null) imm.hideSoftInputFromWindow(etTotalRevenueInput.getWindowToken(), 0);
 
                 updateLiveDashboardMetrics();
+                persistShiftStateToStorage();
                 appendTripRecordToCSVFile("REV_SYNC", dailyEarningsSum);
-                logToTerminal("Revenue Synced: ₹" + String.format(Locale.US, "%.0f", dailyEarningsSum)
-                        + " | Total Km: " + String.format(Locale.US, "%.1f", getTotalShiftKm())
+                logToTerminal("REV SYNC: ₹" + String.format(Locale.US, "%.0f", dailyEarningsSum)
+                        + " | Km: " + String.format(Locale.US, "%.1f", getTotalShiftKm())
                         + " | Rate: ₹" + String.format(Locale.US, "%.1f", currentRatePerKm) + "/km");
             } catch (Exception e) {
                 Toast.makeText(this, "Invalid revenue figure.", Toast.LENGTH_SHORT).show();
             }
         });
 
-        // 3) EXIT APPLICATION COMMAND
+        // 3) EXIT APPLICATION COMMAND (Does NOT erase active shift data)
         btnExitApp.setOnClickListener(v -> {
-            if (isAppStarted) {
-                Toast.makeText(this, "Stop the App Engine execution before exiting!", Toast.LENGTH_SHORT).show();
-                return;
-            }
+            persistShiftStateToStorage();
             finishAffinity();
         });
 
         // 4) TRIP SATELLITE CONTROL
         btnTripToggle.setOnClickListener(v -> {
-            if (!isAppStarted) return;
+            if (!isAppStarted) {
+                Toast.makeText(this, "Start the App first!", Toast.LENGTH_SHORT).show();
+                return;
+            }
             if (!isTripStarted) {
                 startTripSequence();
             } else {
@@ -276,6 +306,9 @@ public class MainActivity extends AppCompatActivity {
             AlertDialog.Builder b = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
             b.setTitle("Add Tip / Bonus Received (₹)");
             final EditText etTip = new EditText(this);
+            etTip.setHint("Tip Amount (₹)");
+            etTip.setTextColor(0xFFFFFFFF);
+            etTip.setHintTextColor(0xFFB0BEC5);
             etTip.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
             b.setView(etTip);
             b.setPositiveButton("Add", (d, w) -> {
@@ -283,35 +316,57 @@ public class MainActivity extends AppCompatActivity {
                     double tip = Double.parseDouble(etTip.getText().toString().trim());
                     dailyEarningsSum += tip;
                     updateLiveDashboardMetrics();
-                    logToTerminal("Tip Income Logged: ₹" + tip);
+                    persistShiftStateToStorage();
+                    logToTerminal("TIP: +₹" + String.format(Locale.US, "%.0f", tip));
+                    appendTripRecordToCSVFile("TIP_INCOME", tip);
                 } catch (Exception ignored) {}
             });
             b.show();
         });
 
-        // 6) DEDICATED SPOT EXPENSES SHORTCUT
+        // 6) DEDICATED SPOT / PLATFORM EXPENSES SHORTCUT (High-contrast white text)
         btnExpense.setOnClickListener(v -> {
             AlertDialog.Builder b = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-            b.setTitle("Spot Expense / Tea, Toll, Puncture (₹)");
+            b.setTitle("Add Expense / Platform Fee (₹)");
             LinearLayout l = new LinearLayout(this);
             l.setOrientation(LinearLayout.VERTICAL);
-            l.setPadding(30, 10, 30, 10);
+            l.setPadding(35, 15, 35, 15);
+
+            TextView tvHeadLbl = new TextView(this);
+            tvHeadLbl.setText("Expense Head / Platform Fee Name:");
+            tvHeadLbl.setTextColor(0xFFFFFFFF);
+            l.addView(tvHeadLbl);
+
             final EditText etLabel = new EditText(this);
-            etLabel.setHint("Reason (e.g. Tea / Toll)");
+            etLabel.setHint("e.g. Platform Fee, Toll, Tea, Units");
+            etLabel.setTextColor(0xFFFFFFFF);
+            etLabel.setHintTextColor(0xFFB0BEC5);
             l.addView(etLabel);
+
+            TextView tvAmtLbl = new TextView(this);
+            tvAmtLbl.setText("Amount (₹):");
+            tvAmtLbl.setTextColor(0xFFFFFFFF);
+            tvAmtLbl.setPadding(0, 12, 0, 0);
+            l.addView(tvAmtLbl);
+
             final EditText etAmt = new EditText(this);
-            etAmt.setHint("Amount (₹)");
+            etAmt.setHint("Enter Amount (₹)");
+            etAmt.setTextColor(0xFFFFFFFF);
+            etAmt.setHintTextColor(0xFFB0BEC5);
             etAmt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
             l.addView(etAmt);
+
             b.setView(l);
             b.setPositiveButton("Save Expense", (d, w) -> {
                 try {
                     String lbl = etLabel.getText().toString().trim();
+                    if (lbl.isEmpty()) lbl = "PLATFORM_FEE";
                     double amt = Double.parseDouble(etAmt.getText().toString().trim());
                     dailySpotExpenses += amt;
                     updateLiveDashboardMetrics();
-                    logToTerminal("Spot Expense Logged: " + lbl + " - ₹" + amt);
-                    appendTripRecordToCSVFile("SPOT_EXPENSE_" + lbl.toUpperCase(), amt);
+                    persistShiftStateToStorage();
+                    logToTerminal("EXP [" + lbl + "]: ₹" + String.format(Locale.US, "%.0f", amt));
+                    appendTripRecordToCSVFile("EXPENSE_" + lbl.toUpperCase().replaceAll("\\s+", "_"), amt);
                 } catch (Exception ignored) {}
             });
             b.show();
@@ -320,6 +375,92 @@ public class MainActivity extends AppCompatActivity {
         // 7) CENTRAL CONFIG HUB CONTROL
         btnVehicleConfig.setOnClickListener(v -> openVehicleConfigDialog());
         btnShareCSV.setOnClickListener(v -> dispatchShareMasterSheet());
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        persistShiftStateToStorage();
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        persistShiftStateToStorage();
+    }
+
+    // ==========================================
+    // PERSISTENT SHIFT STORAGE (ROTATION & REOPEN SAFE)
+    // ==========================================
+    private void persistShiftStateToStorage() {
+        if (shiftPrefs == null) return;
+        shiftPrefs.edit()
+                .putBoolean("isAppStarted", isAppStarted)
+                .putBoolean("isTripStarted", isTripStarted)
+                .putString("accumulatedDistanceKm", String.valueOf(accumulatedDistanceKm))
+                .putString("dryRunDistanceKm", String.valueOf(dryRunDistanceKm))
+                .putString("dailyEarningsSum", String.valueOf(dailyEarningsSum))
+                .putInt("dailyOrdersCount", dailyOrdersCount)
+                .putString("dailySpotExpenses", String.valueOf(dailySpotExpenses))
+                .putString("dailyProfitTarget", String.valueOf(dailyProfitTarget))
+                .putString("shiftStartFuelValueRs", String.valueOf(shiftStartFuelValueRs))
+                .putString("currentFuelPercent", String.valueOf(currentFuelPercent))
+                .putString("vehicleOdoBaseline", String.valueOf(vehicleOdoBaseline))
+                .putString("fuelResetOdoMarker", String.valueOf(fuelResetOdoMarker))
+                .putLong("totalWaitingTimeMs", totalWaitingTimeMs)
+                .putLong("tripStopTimestamp", tripStopTimestamp)
+                .putString("terminalLog", tvTerminalLog != null ? tvTerminalLog.getText().toString() : "")
+                .apply();
+    }
+
+    private void restoreShiftStateFromStorage() {
+        if (shiftPrefs == null) return;
+        boolean savedAppStarted = shiftPrefs.getBoolean("isAppStarted", false);
+        if (!savedAppStarted) return;
+
+        isAppStarted = true;
+        isTripStarted = shiftPrefs.getBoolean("isTripStarted", false);
+        accumulatedDistanceKm = parseDoubleSafe(shiftPrefs.getString("accumulatedDistanceKm", "0.0"), 0.0);
+        dryRunDistanceKm = parseDoubleSafe(shiftPrefs.getString("dryRunDistanceKm", "0.0"), 0.0);
+        dailyEarningsSum = parseDoubleSafe(shiftPrefs.getString("dailyEarningsSum", "0.0"), 0.0);
+        dailyOrdersCount = shiftPrefs.getInt("dailyOrdersCount", 0);
+        dailySpotExpenses = parseDoubleSafe(shiftPrefs.getString("dailySpotExpenses", "0.0"), 0.0);
+        dailyProfitTarget = parseDoubleSafe(shiftPrefs.getString("dailyProfitTarget", "2000.0"), 2000.0);
+        shiftStartFuelValueRs = parseDoubleSafe(shiftPrefs.getString("shiftStartFuelValueRs", "0.0"), 0.0);
+        currentFuelPercent = parseDoubleSafe(shiftPrefs.getString("currentFuelPercent", "100.0"), 100.0);
+        vehicleOdoBaseline = parseDoubleSafe(shiftPrefs.getString("vehicleOdoBaseline", String.valueOf(vehicleOdoBaseline)), vehicleOdoBaseline);
+        fuelResetOdoMarker = parseDoubleSafe(shiftPrefs.getString("fuelResetOdoMarker", String.valueOf(fuelResetOdoMarker)), fuelResetOdoMarker);
+        totalWaitingTimeMs = shiftPrefs.getLong("totalWaitingTimeMs", 0L);
+        tripStopTimestamp = shiftPrefs.getLong("tripStopTimestamp", 0L);
+
+        String savedLog = shiftPrefs.getString("terminalLog", "");
+        if (savedLog != null && !savedLog.isEmpty() && tvTerminalLog != null) {
+            tvTerminalLog.setText(savedLog);
+        }
+    }
+
+    private void clearPersistedShiftState() {
+        if (shiftPrefs == null) return;
+        shiftPrefs.edit()
+                .putBoolean("isAppStarted", false)
+                .putBoolean("isTripStarted", false)
+                .putString("accumulatedDistanceKm", "0.0")
+                .putString("dryRunDistanceKm", "0.0")
+                .putString("dailyEarningsSum", "0.0")
+                .putInt("dailyOrdersCount", 0)
+                .putString("dailySpotExpenses", "0.0")
+                .putLong("totalWaitingTimeMs", 0L)
+                .putLong("tripStopTimestamp", 0L)
+                .apply();
+    }
+
+    private double parseDoubleSafe(String val, double fallback) {
+        try {
+            if (val == null || val.trim().isEmpty()) return fallback;
+            return Double.parseDouble(val.trim());
+        } catch (Exception e) {
+            return fallback;
+        }
     }
 
     // ==========================================
@@ -357,7 +498,6 @@ public class MainActivity extends AppCompatActivity {
                 if (currentFuelPercent < 0.0) currentFuelPercent = 0.0;
                 dailyProfitTarget = Double.parseDouble(etTargetProfit.getText().toString().trim());
 
-                // Sync fuelResetOdoMarker to reflect entered tank level
                 double fullTankValueRs = fuelCapacity * fuelRatePerUnit;
                 shiftStartFuelValueRs = fullTankValueRs * (currentFuelPercent / 100.0);
                 double usedRangeKm = maxExpectedRangeKm * (1.0 - (currentFuelPercent / 100.0));
@@ -365,18 +505,24 @@ public class MainActivity extends AppCompatActivity {
 
                 accumulatedDistanceKm = 0.0;
                 dryRunDistanceKm = 0.0;
+                dailyEarningsSum = 0.0;
+                dailyOrdersCount = 0;
+                dailySpotExpenses = 0.0;
+                totalWaitingTimeMs = 0;
                 previousLocation = null;
                 isAppStarted = true;
+                isTripStarted = false;
                 lastMoveTimestamp = System.currentTimeMillis();
 
                 saveAdvancedProfileToCSV();
                 startIdlePassiveTrackingEngine();
                 updateLiveDashboardMetrics();
+                persistShiftStateToStorage();
                 refreshSystemButtonUI();
 
-                logToTerminal("Shift STARTED | Odo: " + String.format(Locale.US, "%.0f", vehicleOdoBaseline)
-                        + " | Fuel Val: ₹" + String.format(Locale.US, "%.0f", shiftStartFuelValueRs)
-                        + " | Profit Target: ₹" + String.format(Locale.US, "%.0f", dailyProfitTarget));
+                logToTerminal("SHIFT START | Odo:" + String.format(Locale.US, "%.0f", vehicleOdoBaseline)
+                        + " | Fuel:₹" + String.format(Locale.US, "%.0f", shiftStartFuelValueRs)
+                        + " | Tgt:₹" + String.format(Locale.US, "%.0f", dailyProfitTarget));
             } catch (Exception e) {
                 Toast.makeText(this, "Please check numeric inputs.", Toast.LENGTH_SHORT).show();
             }
@@ -400,6 +546,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private double estimateCurrentFuelPercentage() {
+        if (fuelCapacity <= 0 || maxExpectedRangeKm <= 0) return 100.0;
         double distanceSinceRefill = vehicleOdoBaseline - fuelResetOdoMarker;
         if (distanceSinceRefill < 0) distanceSinceRefill = 0;
         double remainingFuelL = fuelCapacity - (distanceSinceRefill * (fuelCapacity / maxExpectedRangeKm));
@@ -415,21 +562,16 @@ public class MainActivity extends AppCompatActivity {
         double perKmFuelCost = getPerKmFuelCost();
         double liveFuelExpense = totalShiftKm * perKmFuelCost;
 
-        // Remaining expected fuel value in ₹ (no liters/kg shown)
         double remainingFuelValueRs = shiftStartFuelValueRs - liveFuelExpense;
         if (remainingFuelValueRs < 0) remainingFuelValueRs = 0;
 
-        // Minimum Operating Expenditure (Standing Cost + Live Running Fuel Cost + Spot Expenses)
         minOperatingExpenditure = dailyStandingCost + liveFuelExpense + dailySpotExpenses;
 
-        // Live Net Profit & Target Gap
         double liveNetProfit = dailyEarningsSum - minOperatingExpenditure;
         double targetGap = dailyProfitTarget - liveNetProfit;
 
-        // Current Earned Rate per km (across total distance driven in shift)
         currentRatePerKm = (totalShiftKm > 0.05) ? (dailyEarningsSum / totalShiftKm) : 0.0;
 
-        // Update Primary Financial Views
         tvLiveNetProfit.setText("Net Profit: ₹" + String.format(Locale.US, "%.0f", liveNetProfit));
         tvLiveNetProfit.setTextColor(liveNetProfit >= 0 ? 0xFF00E676 : 0xFFFF5252);
 
@@ -444,7 +586,6 @@ public class MainActivity extends AppCompatActivity {
         tvMinReqAvg.setText("Min Op Exp: ₹" + String.format(Locale.US, "%.0f", minOperatingExpenditure));
         tvCurrentAvg.setText("Curr Rate: ₹" + String.format(Locale.US, "%.1f/km", currentRatePerKm));
 
-        // Update Telemetry & Fuel Value Views
         tvOdoMeter.setText("Odo: " + String.format(Locale.US, "%.0f", vehicleOdoBaseline + totalShiftKm));
         tvTotalDist.setText("Shift Km: " + String.format(Locale.US, "%.1f", totalShiftKm));
         tvDryRun.setText("Dry Km: " + String.format(Locale.US, "%.1f", dryRunDistanceKm));
@@ -453,30 +594,25 @@ public class MainActivity extends AppCompatActivity {
         tvAvgFuelCons.setText("Run Cost: ₹" + String.format(Locale.US, "%.1f/km", perKmFuelCost));
         tvAvailFuel.setText("Rem Fuel Val: ₹" + String.format(Locale.US, "%.0f", remainingFuelValueRs));
 
-        // Update 1-3 km, 4-6 km, 7-10 km Feasibility Chart
         updateFeasibilityRangeChart(perKmFuelCost);
     }
 
     private void updateFeasibilityRangeChart(double perKmFuelCost) {
-        // Prorated standing cost per km assuming ~120 km standard daily duty cycle
         double standingPerKm = dailyStandingCost / 120.0;
         double minBreakEvenPerKm = perKmFuelCost + standingPerKm;
 
-        // Bracket 1: 1 - 3 km
         double min1 = Math.ceil(1.0 * minBreakEvenPerKm);
         double min3 = Math.ceil(3.0 * minBreakEvenPerKm);
         double cur1 = Math.round(1.0 * currentRatePerKm);
         double cur3 = Math.round(3.0 * currentRatePerKm);
         tvRange1to3.setText(String.format(Locale.US, "1–3 km\nMin: ₹%.0f–%.0f\nCur: ₹%.0f–%.0f", min1, min3, cur1, cur3));
 
-        // Bracket 2: 4 - 6 km
         double min4 = Math.ceil(4.0 * minBreakEvenPerKm);
         double min6 = Math.ceil(6.0 * minBreakEvenPerKm);
         double cur4 = Math.round(4.0 * currentRatePerKm);
         double cur6 = Math.round(6.0 * currentRatePerKm);
         tvRange4to6.setText(String.format(Locale.US, "4–6 km\nMin: ₹%.0f–%.0f\nCur: ₹%.0f–%.0f", min4, min6, cur4, cur6));
 
-        // Bracket 3: 7 - 10 km
         double min7 = Math.ceil(7.0 * minBreakEvenPerKm);
         double min10 = Math.ceil(10.0 * minBreakEvenPerKm);
         double cur7 = Math.round(7.0 * currentRatePerKm);
@@ -537,10 +673,17 @@ public class MainActivity extends AppCompatActivity {
             totalWaitingTimeMs += (System.currentTimeMillis() - tripStopTimestamp);
             updateWaitingTimeDisplayField();
         }
-        logToTerminal("Active Trip Engaged.");
+        persistShiftStateToStorage();
+        logToTerminal("TRIP START");
         refreshSystemButtonUI();
+        resumeActiveTripListener();
+    }
 
+    private void resumeActiveTripListener() {
         try {
+            if (locationManager != null && locationListener != null) {
+                locationManager.removeUpdates(locationListener);
+            }
             locationListener = new LocationListener() {
                 @Override public void onLocationChanged(@NonNull Location location) { processLiveLocationTelemetry(location, true); }
                 @Override public void onProviderDisabled(@NonNull String p) {}
@@ -550,7 +693,7 @@ public class MainActivity extends AppCompatActivity {
                 locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000, 5, locationListener);
             }
         } catch (Exception e) {
-            logToTerminal("[ERROR] Satellite linkage failure.");
+            logToTerminal("[ERR] GPS");
         }
     }
 
@@ -560,7 +703,8 @@ public class MainActivity extends AppCompatActivity {
         if (locationManager != null && locationListener != null) {
             locationManager.removeUpdates(locationListener);
         }
-        logToTerminal("Active Trip Stopped. Enter cumulative revenue or use voice.");
+        persistShiftStateToStorage();
+        logToTerminal("TRIP STOP");
         refreshSystemButtonUI();
         saveAdvancedProfileToCSV();
     }
@@ -568,6 +712,7 @@ public class MainActivity extends AppCompatActivity {
     private void startIdlePassiveTrackingEngine() {
         try {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                locationManager.removeUpdates(passiveIdleListener);
                 locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000, 8, passiveIdleListener);
                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000, 15, passiveIdleListener);
             }
@@ -588,18 +733,16 @@ public class MainActivity extends AppCompatActivity {
 
     private void processLiveLocationTelemetry(Location location, boolean isInsideActiveTrip) {
         if (!isAppStarted) return;
-
-        // Ignore duplicate callbacks from passive listener when active trip listener is already running
         if (!isInsideActiveTrip && isTripStarted) return;
 
         double lat = location.getLatitude();
         double lon = location.getLongitude();
+        String locStamp = String.format(Locale.US, "%.4f,%.4f", lat, lon);
 
         if (previousLocation != null) {
             double deltaMeters = location.distanceTo(previousLocation);
             double deltaKm = deltaMeters / 1000.0;
 
-            // Bridge GPS signal gaps cleanly while filtering stationary GPS drift (< 8m) and impossible jumps (> 25km)
             if (deltaMeters >= 8.0 && deltaKm <= 25.0) {
                 if (isInsideActiveTrip) {
                     accumulatedDistanceKm += deltaKm;
@@ -608,12 +751,14 @@ public class MainActivity extends AppCompatActivity {
                 }
                 previousLocation = location;
                 updateLiveDashboardMetrics();
+                persistShiftStateToStorage();
+                logToTerminal((isInsideActiveTrip ? "TR:" : "DR:") + locStamp + " +" + String.format(Locale.US, "%.2f", deltaKm));
             }
         } else {
             previousLocation = location;
+            logToTerminal("GPS:" + locStamp);
         }
 
-        // Idling tracker (> 60s stationary)
         if (lastIdleRecordedLocation == null) {
             lastIdleRecordedLocation = location;
             lastMoveTimestamp = System.currentTimeMillis();
@@ -626,7 +771,9 @@ public class MainActivity extends AppCompatActivity {
                 if (idleDelta >= 60000) {
                     totalWaitingTimeMs += idleDelta;
                     updateWaitingTimeDisplayField();
+                    persistShiftStateToStorage();
                     recordIdleLocationToCSV(lat, lon, isInsideActiveTrip ? "DURING_TRIP_IDLE" : "WITHOUT_TRIP_IDLE");
+                    logToTerminal("IDL:" + locStamp);
                     lastMoveTimestamp = System.currentTimeMillis();
                 }
             }
@@ -762,7 +909,10 @@ public class MainActivity extends AppCompatActivity {
             currentFuelPercent = 100.0;
             shiftStartFuelValueRs = fuelCapacity * fuelRatePerUnit;
             updateLiveDashboardMetrics();
+            persistShiftStateToStorage();
             saveAdvancedProfileToCSV();
+            appendTripRecordToCSVFile("REFILL_100_PCT", shiftStartFuelValueRs);
+            logToTerminal("REFILL: ₹" + String.format(Locale.US, "%.0f", shiftStartFuelValueRs));
             Toast.makeText(this, "Tank refilled! Fuel Value calibrated to ₹" + String.format(Locale.US, "%.0f", shiftStartFuelValueRs), Toast.LENGTH_SHORT).show();
         });
         mainContainer.addView(btnRefill);
@@ -827,6 +977,7 @@ public class MainActivity extends AppCompatActivity {
 
                 shiftStartFuelValueRs = (fuelCapacity * fuelRatePerUnit) * (estimateCurrentFuelPercentage() / 100.0);
                 updateLiveDashboardMetrics();
+                persistShiftStateToStorage();
                 saveAdvancedProfileToCSV();
                 refreshSystemButtonUI();
             } catch (Exception e) {
@@ -879,6 +1030,7 @@ public class MainActivity extends AppCompatActivity {
                 expenseFleetList.addAll(bufferList);
 
                 updateLiveDashboardMetrics();
+                persistShiftStateToStorage();
                 saveAdvancedProfileToCSV();
                 refreshSystemButtonUI();
                 Toast.makeText(this, "Fixed Expenses synchronized!", Toast.LENGTH_SHORT).show();
@@ -932,6 +1084,8 @@ public class MainActivity extends AppCompatActivity {
 
         final EditText etNewAppInput = new EditText(this);
         etNewAppInput.setHint("Type platform label (e.g. UBER)");
+        etNewAppInput.setTextColor(0xFFFFFFFF);
+        etNewAppInput.setHintTextColor(0xFFB0BEC5);
         mainContainer.addView(etNewAppInput);
         Button btnAddApp = new Button(this);
         btnAddApp.setText("+ Insert New Platform");
@@ -964,7 +1118,8 @@ public class MainActivity extends AppCompatActivity {
         final EditText etNameInput = new EditText(ctx);
         etNameInput.setHint("Label (EMI)");
         etNameInput.setText(expenseData.name);
-        etNameInput.setTextColor(0xFFFFCC00);
+        etNameInput.setTextColor(0xFFFFFFFF);
+        etNameInput.setHintTextColor(0xFFB0BEC5);
         etNameInput.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.2f));
         rowLine.addView(etNameInput);
 
@@ -972,7 +1127,8 @@ public class MainActivity extends AppCompatActivity {
         etAmtInput.setHint("₹");
         etAmtInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         etAmtInput.setText(expenseData.amount <= 0 ? "" : String.valueOf(expenseData.amount));
-        etAmtInput.setTextColor(0xFFFFCC00);
+        etAmtInput.setTextColor(0xFFFFFFFF);
+        etAmtInput.setHintTextColor(0xFFB0BEC5);
         etAmtInput.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.9f));
         rowLine.addView(etAmtInput);
 
@@ -1011,7 +1167,6 @@ public class MainActivity extends AppCompatActivity {
         String dataLine = categoryHeader + "," + timestamp + "," + latitude + "," + longitude + "," + (vehicleOdoBaseline + getTotalShiftKm()) + "\n";
         try (FileOutputStream fos = openFileOutput(filename, Context.MODE_APPEND)) {
             fos.write(dataLine.getBytes());
-            logToTerminal("[IDLE] 1 min stationary logged.");
         } catch (Exception ignored) {}
     }
 
@@ -1146,8 +1301,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void logToTerminal(String message) {
-        String timestamp = new SimpleDateFormat("hh:mm a", Locale.getDefault()).format(new Date());
-        tvTerminalLog.append("[" + timestamp + "] " + message + "\n");
+        String timestamp = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
+        tvTerminalLog.append(timestamp + " " + message + "\n");
         svTerminal.post(() -> svTerminal.fullScroll(View.FOCUS_DOWN));
     }
 
@@ -1159,7 +1314,8 @@ public class MainActivity extends AppCompatActivity {
         container.addView(tvLabel);
         EditText et = new EditText(ctx);
         et.setText(text);
-        et.setTextColor(0xFFFFCC00);
+        et.setTextColor(0xFFFFFFFF);
+        et.setHintTextColor(0xFFB0BEC5);
         container.addView(et);
         return et;
     }
@@ -1189,6 +1345,10 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (locationManager != null) {
+            if (locationListener != null) locationManager.removeUpdates(locationListener);
+            locationManager.removeUpdates(passiveIdleListener);
+        }
         if (speechRecognizer != null) speechRecognizer.destroy();
         super.onDestroy();
     }
