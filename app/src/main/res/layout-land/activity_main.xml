@@ -1,1 +1,321 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:background="#121212"
+    android:padding="6dp"
+    android:fitsSystemWindows="true"
+    android:weightSum="10">
 
+    <!-- LEFT PANE: Main Dashboard & Controls (90% / Weight 9) -->
+    <ScrollView
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="9"
+        android:paddingEnd="4dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Status & Working Days Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2"
+                android:paddingBottom="2dp">
+
+                <TextView
+                    android:id="@+id/tvVehicleStatus"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1.35"
+                    android:text="Status: STOPPED"
+                    android:textColor="#FF5252"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvDaysLeft"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.65"
+                    android:text="Days Left: 26"
+                    android:textColor="#FFFFFF"
+                    android:gravity="end"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <!-- Live Net Profit & Target Gap Banner -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="#1E1E1E"
+                android:padding="5dp"
+                android:layout_marginBottom="4dp"
+                android:weightSum="2">
+
+                <TextView
+                    android:id="@+id/tvLiveNetProfit"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Net Profit: ₹0"
+                    android:textColor="#00E676"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvTargetGap"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Target Gap: ₹2000"
+                    android:textColor="#FFAB40"
+                    android:gravity="end"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- MOE vs Current Rate/km Panel -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2"
+                android:paddingBottom="3dp">
+
+                <TextView
+                    android:id="@+id/tvMinReqAvg"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Min Op Exp: ₹0"
+                    android:textColor="#FF8A80"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvCurrentAvg"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Curr Rate: ₹0.0/km"
+                    android:textColor="#40C4FF"
+                    android:gravity="end"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Quick Total Revenue Input Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="#1B2631"
+                android:padding="4dp"
+                android:layout_marginBottom="4dp"
+                android:gravity="center_vertical">
+
+                <EditText
+                    android:id="@+id/etTotalRevenueInput"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Total Revenue Collected (₹)"
+                    android:textColorHint="#B0BEC5"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:inputType="numberDecimal"
+                    android:singleLine="true"
+                    android:padding="4dp" />
+
+                <Button
+                    android:id="@+id/btnUpdateRevenue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="Update"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:backgroundTint="#00897B"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
+
+            <!-- Telemetry Stats Grid -->
+            <GridLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:columnCount="3"
+                android:alignmentMode="alignMargins"
+                android:columnOrderPreserved="false"
+                android:paddingBottom="2dp">
+
+                <TextView android:id="@+id/tvOdoMeter" android:text="Odo: 0" android:textColor="#CCCCCC" android:textSize="11sp" android:padding="2dp"/>
+                <TextView android:id="@+id/tvTotalDist" android:text="Shift Km: 0.0" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="11sp" android:padding="2dp"/>
+                <TextView android:id="@+id/tvOrdersToday" android:text="Updates: 0" android:textColor="#CCCCCC" android:textSize="11sp" android:padding="2dp"/>
+                <TextView android:id="@+id/tvWaitTime" android:text="Idle: 0H 0M" android:textColor="#CCCCCC" android:textSize="11sp" android:padding="2dp"/>
+                <TextView android:id="@+id/tvDryRun" android:text="Dry Km: 0.0" android:textColor="#CCCCCC" android:textSize="11sp" android:padding="2dp"/>
+                <TextView android:id="@+id/tvEarnings" android:text="Rev: ₹0" android:textColor="#FFD700" android:textSize="12sp" android:textStyle="bold" android:padding="2dp"/>
+            </GridLayout>
+
+            <!-- Fuel Value & Running Cost Metrics -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2"
+                android:paddingBottom="4dp">
+                <TextView android:id="@+id/tvAvgFuelCons" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Run Cost: ₹0.0/km" android:textColor="#B0BEC5" android:textSize="11sp"/>
+                <TextView android:id="@+id/tvAvailFuel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Rem Fuel Val: ₹0" android:textColor="#80CBC4" android:textStyle="bold" android:gravity="end" android:textSize="11sp"/>
+            </LinearLayout>
+
+            <!-- Live Feasibility Range Reference Chart -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#1A237E"
+                android:padding="4dp"
+                android:layout_marginBottom="4dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="FEASIBILITY CHART (Min vs Curr Rate/km)"
+                    android:textColor="#BBDEFB"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:paddingBottom="2dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:weightSum="3">
+
+                    <TextView
+                        android:id="@+id/tvRange1to3"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="1–3 km\nMin: ₹0–0\nCur: ₹0–0"
+                        android:textColor="#FFFFFF"
+                        android:textSize="10sp"
+                        android:background="#283593"
+                        android:padding="3dp"
+                        android:layout_marginEnd="2dp" />
+
+                    <TextView
+                        android:id="@+id/tvRange4to6"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="4–6 km\nMin: ₹0–0\nCur: ₹0–0"
+                        android:textColor="#FFFFFF"
+                        android:textSize="10sp"
+                        android:background="#283593"
+                        android:padding="3dp"
+                        android:layout_marginEnd="2dp" />
+
+                    <TextView
+                        android:id="@+id/tvRange7to10"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="7–10 km\nMin: ₹0–0\nCur: ₹0–0"
+                        android:textColor="#FFFFFF"
+                        android:textSize="10sp"
+                        android:background="#283593"
+                        android:padding="3dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Main Control Buttons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="3"
+                android:paddingBottom="3dp">
+
+                <Button
+                    android:id="@+id/btnAppToggle"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:text="App Start"
+                    android:textSize="10sp"/>
+
+                <Button
+                    android:id="@+id/btnTripToggle"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:text="Trip Start"
+                    android:textSize="10sp"/>
+
+                <Button
+                    android:id="@+id/btnExitApp"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:text="Exit"
+                    android:textSize="10sp"/>
+            </LinearLayout>
+
+            <!-- Secondary Action Buttons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="4">
+
+                <Button android:id="@+id/btnVehicleConfig" android:layout_width="0dp" android:layout_height="36dp" android:layout_weight="1" android:text="Config" android:textSize="9sp"/>
+                <Button android:id="@+id/btnShareCSV" android:layout_width="0dp" android:layout_height="36dp" android:layout_weight="1" android:text="Share" android:textSize="9sp"/>
+                <Button android:id="@+id/btnTips" android:layout_width="0dp" android:layout_height="36dp" android:layout_weight="1" android:text="+Tip" android:textSize="9sp"/>
+                <Button android:id="@+id/btnExpense" android:layout_width="0dp" android:layout_height="36dp" android:layout_weight="1" android:text="+Exp" android:textSize="9sp"/>
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- RIGHT PANE: Narrow Live Running GPS & Update Stream (~10% / Weight 1) -->
+    <ScrollView
+        android:id="@+id/svTerminal"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:background="#000000"
+        android:padding="2dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvTerminalLog"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="LIVE\n"
+                android:textColor="#00FF00"
+                android:textSize="8sp"
+                android:fontFamily="monospace"/>
+
+            <TextView
+                android:id="@+id/tvTrainData"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="#FFEB3B"
+                android:textSize="8sp"
+                android:fontFamily="monospace"
+                android:visibility="gone"/>
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>
