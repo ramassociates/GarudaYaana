@@ -2,6 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="#121212"
     android:padding="16dp">
 
     <LinearLayout
@@ -14,7 +15,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Enter Vehicle Number (Ex: KL-01-AB-1234)"
-            android:inputType="text"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#B0BEC5"
+            android:inputType="textCapCharacters"
             android:layout_marginBottom="12dp" />
 
     </LinearLayout>
