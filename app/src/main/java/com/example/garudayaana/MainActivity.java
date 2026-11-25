@@ -2,7 +2,6 @@ package com.example.garudayaana;
 
 import android.Manifest;
 import android.app.AlertDialog;
-import android.app.DatePickerDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -19,6 +18,7 @@ import android.speech.SpeechRecognizer;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
 import java.util.concurrent.Executors;
@@ -130,6 +131,30 @@ public class MainActivity extends AppCompatActivity {
     private final HashMap<String, String> platformSubInfoMap = new HashMap<>();
     private double dailyStandingCost = 0.0;
 
+    private ArrayAdapter<String> createWhiteSpinnerAdapter(List<String> items) {
+        return new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, items) {
+            @NonNull
+            @Override
+            public View getView(int position, View convertView, @NonNull ViewGroup parent) {
+                View v = super.getView(position, convertView, parent);
+                if (v instanceof TextView) {
+                    ((TextView) v).setTextColor(0xFFFFFFFF);
+                }
+                return v;
+            }
+
+            @Override
+            public View getDropDownView(int position, View convertView, @NonNull ViewGroup parent) {
+                View v = super.getDropDownView(position, convertView, parent);
+                if (v instanceof TextView) {
+                    ((TextView) v).setTextColor(0xFFFFFFFF);
+                    v.setBackgroundColor(0xFF1E1E1E);
+                }
+                return v;
+            }
+        };
+    }
+
     private void fetchTrainData(String url) {
         Executors.newSingleThreadExecutor().execute(() -> {
             OkHttpClient client = new OkHttpClient();
@@ -145,6 +170,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void processCsvData(String data) {
         if (tvTrainData == null || data == null) return;
+        tvTrainData.setTextColor(0xFFFFFFFF);
         String[] lines = data.split("\n");
         StringBuilder displayData = new StringBuilder();
         for (int i = 1; i < lines.length; i++) {
@@ -274,6 +300,25 @@ public class MainActivity extends AppCompatActivity {
 
         btnAppToggle = findViewById(R.id.btnAppToggle);
         btnTripToggle = findViewById(R.id.btnTripToggle);
+
+        TextView[] whiteViews = {
+                tvVehicleStatus, tvDaysLeft, tvDailyGrossTarget, tvMonthlyGrossTarget,
+                tvYearlyGrossTarget, tvMinReqAvg, tvCurrentAvg, tvOdoMeter, tvTotalDist,
+                tvOrdersToday, tvWaitTime, tvDryRun, tvAvgFuelCons, tvAvailFuel,
+                tvEarnings, tvTerminalLog, tvTrainData, tvFlashOfferGuide, tvFlashFareResult,
+                tvRange1to3, tvRange4to6, tvRange7to10
+        };
+        for (TextView tv : whiteViews) {
+            if (tv != null) tv.setTextColor(0xFFFFFFFF);
+        }
+        if (etTotalRevenueInput != null) {
+            etTotalRevenueInput.setTextColor(0xFFFFFFFF);
+            etTotalRevenueInput.setHintTextColor(0xFFCFD8DC);
+        }
+        if (etFlashFareCheck != null) {
+            etFlashFareCheck.setTextColor(0xFFFFFFFF);
+            etFlashFareCheck.setHintTextColor(0xFFCFD8DC);
+        }
     }
 
     private void attachClickListenersSafely() {
@@ -283,6 +328,11 @@ public class MainActivity extends AppCompatActivity {
         Button btnShareCSV = findViewById(R.id.btnShareCSV);
         Button btnTips = findViewById(R.id.btnTips);
         Button btnExpense = findViewById(R.id.btnExpense);
+
+        Button[] allButtons = {btnExitApp, btnVehicleConfig, btnSubPlan, btnShareCSV, btnTips, btnExpense, btnUpdateRevenue, btnAppToggle, btnTripToggle};
+        for (Button b : allButtons) {
+            if (b != null) b.setTextColor(0xFFFFFFFF);
+        }
 
         if (etFlashFareCheck != null) {
             etFlashFareCheck.addTextChangedListener(new TextWatcher() {
@@ -403,7 +453,7 @@ public class MainActivity extends AppCompatActivity {
                 final EditText etTip = new EditText(this);
                 etTip.setHint("Tip Amount (₹)");
                 etTip.setTextColor(0xFFFFFFFF);
-                etTip.setHintTextColor(0xFFB0BEC5);
+                etTip.setHintTextColor(0xFFCFD8DC);
                 etTip.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
                 b.setView(etTip);
                 b.setPositiveButton("Add", (d, w) -> {
@@ -613,7 +663,7 @@ public class MainActivity extends AppCompatActivity {
         l.addView(tvP);
 
         final Spinner spnPlat = new Spinner(this);
-        spnPlat.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, speechPlatformsList));
+        spnPlat.setAdapter(createWhiteSpinnerAdapter(speechPlatformsList));
         l.addView(spnPlat);
 
         final EditText etFee = createDialogEditText(this, "Subscription Plan Fee (₹):", "165", l);
@@ -659,7 +709,7 @@ public class MainActivity extends AppCompatActivity {
         ArrayList<String> cats = new ArrayList<>(speechPlatformsList);
         cats.add("GENERAL / TOLL / TEA");
         final Spinner spnCat = new Spinner(this);
-        spnCat.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, cats));
+        spnCat.setAdapter(createWhiteSpinnerAdapter(cats));
         l.addView(spnCat);
 
         final EditText etLabel = createDialogEditText(this, "Expense Head (e.g. Toll, Tea):", "", l);
@@ -828,11 +878,20 @@ public class MainActivity extends AppCompatActivity {
             double monthlyGrossTarget = (dailyStandingCost + dailyNetIncomeGoal) * 30.0;
             double yearlyGrossTarget = monthlyGrossTarget * 12.0;
 
-            if (tvDailyGrossTarget != null) tvDailyGrossTarget.setText("Daily Tgt: ₹" + String.format(Locale.US, "%.0f", dailyGrossTarget));
-            if (tvMonthlyGrossTarget != null) tvMonthlyGrossTarget.setText("Monthly: ₹" + String.format(Locale.US, "%.0f", monthlyGrossTarget));
-            if (tvYearlyGrossTarget != null) tvYearlyGrossTarget.setText("Yearly: ₹" + String.format(Locale.US, "%.0f", yearlyGrossTarget));
+            if (tvDailyGrossTarget != null) {
+                tvDailyGrossTarget.setTextColor(0xFFFFFFFF);
+                tvDailyGrossTarget.setText("Daily Tgt: ₹" + String.format(Locale.US, "%.0f", dailyGrossTarget));
+            }
+            if (tvMonthlyGrossTarget != null) {
+                tvMonthlyGrossTarget.setTextColor(0xFFFFFFFF);
+                tvMonthlyGrossTarget.setText("Monthly: ₹" + String.format(Locale.US, "%.0f", monthlyGrossTarget));
+            }
+            if (tvYearlyGrossTarget != null) {
+                tvYearlyGrossTarget.setTextColor(0xFFFFFFFF);
+                tvYearlyGrossTarget.setText("Yearly: ₹" + String.format(Locale.US, "%.0f", yearlyGrossTarget));
+            }
 
-            currentRatePerKm = (totalShiftKm > 0.05) ? (dailyEarningsSum / totalShiftKm) : 0.0;
+            currentRatePerKm = (totalShiftKm > 0.05) ? (dailyEarningsSum / totalShiftKm) : getMinBreakEvenRatePerKm();
 
             if (tvLiveNetProfit != null) {
                 tvLiveNetProfit.setText("Net Profit: ₹" + String.format(Locale.US, "%.0f", liveNetProfit));
@@ -849,16 +908,43 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-            if (tvMinReqAvg != null) tvMinReqAvg.setText("Min Op Exp: ₹" + String.format(Locale.US, "%.0f", minOperatingExpenditure));
-            if (tvCurrentAvg != null) tvCurrentAvg.setText("Curr Rate: ₹" + String.format(Locale.US, "%.1f/km", currentRatePerKm));
+            if (tvMinReqAvg != null) {
+                tvMinReqAvg.setTextColor(0xFFFFFFFF);
+                tvMinReqAvg.setText("Min Op Exp: ₹" + String.format(Locale.US, "%.0f", minOperatingExpenditure));
+            }
+            if (tvCurrentAvg != null) {
+                tvCurrentAvg.setTextColor(0xFFFFFFFF);
+                tvCurrentAvg.setText("Rate/km: ₹" + String.format(Locale.US, "%.1f/km", currentRatePerKm));
+            }
 
-            if (tvOdoMeter != null) tvOdoMeter.setText("Odo: " + String.format(Locale.US, "%.0f", vehicleOdoBaseline + totalShiftKm));
-            if (tvTotalDist != null) tvTotalDist.setText("Shift Km: " + String.format(Locale.US, "%.1f", totalShiftKm));
-            if (tvDryRun != null) tvDryRun.setText("Dry Km: " + String.format(Locale.US, "%.1f", dryRunDistanceKm));
-            if (tvOrdersToday != null) tvOrdersToday.setText("Updates: " + dailyOrdersCount);
-            if (tvEarnings != null) tvEarnings.setText("Total Rev: ₹" + String.format(Locale.US, "%.0f", dailyEarningsSum));
-            if (tvAvgFuelCons != null) tvAvgFuelCons.setText("Run (F+T): ₹" + String.format(Locale.US, "%.1f/km", totalRunCostPerKm));
-            if (tvAvailFuel != null) tvAvailFuel.setText("Rem Fuel Val: ₹" + String.format(Locale.US, "%.0f", remainingFuelValueRs));
+            if (tvOdoMeter != null) {
+                tvOdoMeter.setTextColor(0xFFFFFFFF);
+                tvOdoMeter.setText("Odo: " + String.format(Locale.US, "%.0f", vehicleOdoBaseline + totalShiftKm));
+            }
+            if (tvTotalDist != null) {
+                tvTotalDist.setTextColor(0xFFFFFFFF);
+                tvTotalDist.setText("Shift Km: " + String.format(Locale.US, "%.1f", totalShiftKm));
+            }
+            if (tvDryRun != null) {
+                tvDryRun.setTextColor(0xFFFFFFFF);
+                tvDryRun.setText("Dry Km: " + String.format(Locale.US, "%.1f", dryRunDistanceKm));
+            }
+            if (tvOrdersToday != null) {
+                tvOrdersToday.setTextColor(0xFFFFFFFF);
+                tvOrdersToday.setText("Updates: " + dailyOrdersCount);
+            }
+            if (tvEarnings != null) {
+                tvEarnings.setTextColor(0xFFFFFFFF);
+                tvEarnings.setText("Total Rev: ₹" + String.format(Locale.US, "%.0f", dailyEarningsSum));
+            }
+            if (tvAvgFuelCons != null) {
+                tvAvgFuelCons.setTextColor(0xFFFFFFFF);
+                tvAvgFuelCons.setText("Run (F+T): ₹" + String.format(Locale.US, "%.1f/km", totalRunCostPerKm));
+            }
+            if (tvAvailFuel != null) {
+                tvAvailFuel.setTextColor(0xFFFFFFFF);
+                tvAvailFuel.setText("Rem Fuel Val: ₹" + String.format(Locale.US, "%.0f", remainingFuelValueRs));
+            }
 
             updatePlatformFeasibilityBanner(totalShiftKm, totalRunCostPerKm);
             updateFeasibilityRangeChart();
@@ -870,7 +956,7 @@ public class MainActivity extends AppCompatActivity {
         if (tvPlatformFeasibility == null) return;
         if (platformRevenueMap.isEmpty() && platformExpenseMap.isEmpty()) {
             tvPlatformFeasibility.setText("PLATFORM FEASIBILITY: Add Subscription or Revenue Update");
-            tvPlatformFeasibility.setTextColor(0xFFFFF59D);
+            tvPlatformFeasibility.setTextColor(0xFFFFFFFF);
             return;
         }
 
@@ -893,46 +979,71 @@ public class MainActivity extends AppCompatActivity {
               .append(verdict).append(" (₹").append(String.format(Locale.US, "%.0f", platNet)).append(")");
         }
 
+        tvPlatformFeasibility.setTextColor(0xFFFFFFFF);
         tvPlatformFeasibility.setText(sb.length() == 0 ? "PLATFORM FEASIBILITY: Ready" : sb.toString());
     }
 
     private double getMinBreakEvenRatePerKm() {
+        calculateMathematicalDailyStandingCost30Day();
         double totalRunCostPerKm = getTotalPerKmWearAndFuelCost();
         double standingPerKm = dailyStandingCost / 120.0;
-        return totalRunCostPerKm + standingPerKm;
+        double rate = totalRunCostPerKm + standingPerKm;
+        return rate > 0.1 ? rate : 12.0;
     }
 
     private void updateFeasibilityRangeChart() {
         double minBreakEvenPerKm = getMinBreakEvenRatePerKm();
-        double maxKm150 = minBreakEvenPerKm > 0 ? (150.0 / minBreakEvenPerKm) : 0;
-        double maxKm280 = minBreakEvenPerKm > 0 ? (280.0 / minBreakEvenPerKm) : 0;
-        double maxKm480 = minBreakEvenPerKm > 0 ? (480.0 / minBreakEvenPerKm) : 0;
-        double maxKm500 = minBreakEvenPerKm > 0 ? (500.0 / minBreakEvenPerKm) : 0;
+        double effectivePerKm = (getTotalShiftKm() > 0.05 && dailyEarningsSum > 0)
+                ? (dailyEarningsSum / getTotalShiftKm())
+                : minBreakEvenPerKm;
+
+        double maxKm150 = 150.0 / minBreakEvenPerKm;
+        double maxKm280 = 280.0 / minBreakEvenPerKm;
+        double maxKm480 = 480.0 / minBreakEvenPerKm;
+        double maxKm500 = 500.0 / minBreakEvenPerKm;
 
         if (tvFlashOfferGuide != null) {
+            tvFlashOfferGuide.setTextColor(0xFFFFFFFF);
             tvFlashOfferGuide.setText(String.format(Locale.US,
-                    "INCLUDING PICKUP & DROP MAX KM -> ₹150: %.1fkm | ₹280: %.1fkm | ₹480: %.1fkm | ₹500: %.1fkm",
-                    maxKm150, maxKm280, maxKm480, maxKm500));
+                    "RATE: ₹%.1f/km | MAX KM -> ₹150: %.1fkm | ₹280: %.1fkm | ₹480: %.1fkm | ₹500: %.1fkm",
+                    minBreakEvenPerKm, maxKm150, maxKm280, maxKm480, maxKm500));
         }
+
+        double min1to3 = Math.max(1.0, Math.ceil(1.0 * minBreakEvenPerKm));
+        double max1to3 = Math.max(min1to3 + 1.0, Math.ceil(3.0 * minBreakEvenPerKm));
+        double cur1to3Low = Math.max(1.0, Math.round(1.0 * effectivePerKm));
+        double cur1to3High = Math.max(cur1to3Low + 1.0, Math.round(3.0 * effectivePerKm));
+
+        double min4to6 = Math.max(1.0, Math.ceil(4.0 * minBreakEvenPerKm));
+        double max4to6 = Math.max(min4to6 + 1.0, Math.ceil(6.0 * minBreakEvenPerKm));
+        double cur4to6Low = Math.max(1.0, Math.round(4.0 * effectivePerKm));
+        double cur4to6High = Math.max(cur4to6Low + 1.0, Math.round(6.0 * effectivePerKm));
+
+        double min7to10 = Math.max(1.0, Math.ceil(7.0 * minBreakEvenPerKm));
+        double max7to10 = Math.max(min7to10 + 1.0, Math.ceil(10.0 * minBreakEvenPerKm));
+        double cur7to10Low = Math.max(1.0, Math.round(7.0 * effectivePerKm));
+        double cur7to10High = Math.max(cur7to10Low + 1.0, Math.round(10.0 * effectivePerKm));
+
         if (tvRange1to3 != null) {
-            tvRange1to3.setText(String.format(Locale.US, "1–3 km\nMin: ₹%.0f–%.0f\nCur: ₹%.0f–%.0f",
-                    Math.ceil(1.0 * minBreakEvenPerKm), Math.ceil(3.0 * minBreakEvenPerKm),
-                    Math.round(1.0 * currentRatePerKm), Math.round(3.0 * currentRatePerKm)));
+            tvRange1to3.setTextColor(0xFFFFFFFF);
+            tvRange1to3.setText(String.format(Locale.US, "1-3 km (₹%.1f/km)\nMin: ₹%.0f–%.0f | Est: ₹%.0f–%.0f",
+                    minBreakEvenPerKm, min1to3, max1to3, cur1to3Low, cur1to3High));
         }
         if (tvRange4to6 != null) {
-            tvRange4to6.setText(String.format(Locale.US, "4–6 km\nMin: ₹%.0f–%.0f\nCur: ₹%.0f–%.0f",
-                    Math.ceil(4.0 * minBreakEvenPerKm), Math.ceil(6.0 * minBreakEvenPerKm),
-                    Math.round(4.0 * currentRatePerKm), Math.round(6.0 * currentRatePerKm)));
+            tvRange4to6.setTextColor(0xFFFFFFFF);
+            tvRange4to6.setText(String.format(Locale.US, "4-6 km (₹%.1f/km)\nMin: ₹%.0f–%.0f | Est: ₹%.0f–%.0f",
+                    minBreakEvenPerKm, min4to6, max4to6, cur4to6Low, cur4to6High));
         }
         if (tvRange7to10 != null) {
-            tvRange7to10.setText(String.format(Locale.US, "7–10 km\nMin: ₹%.0f–%.0f\nCur: ₹%.0f–%.0f",
-                    Math.ceil(7.0 * minBreakEvenPerKm), Math.ceil(10.0 * minBreakEvenPerKm),
-                    Math.round(7.0 * currentRatePerKm), Math.round(10.0 * currentRatePerKm)));
+            tvRange7to10.setTextColor(0xFFFFFFFF);
+            tvRange7to10.setText(String.format(Locale.US, "7-10 km (₹%.1f/km)\nMin: ₹%.0f–%.0f | Est: ₹%.0f–%.0f",
+                    minBreakEvenPerKm, min7to10, max7to10, cur7to10Low, cur7to10High));
         }
     }
 
     private void updateFlashFareInstantResult() {
         if (etFlashFareCheck == null || tvFlashFareResult == null) return;
+        tvFlashFareResult.setTextColor(0xFFFFFFFF);
         String raw = etFlashFareCheck.getText().toString().trim();
         if (raw.isEmpty()) {
             tvFlashFareResult.setText("INCLUDING PICKUP & DROP: Max -- km");
@@ -941,8 +1052,8 @@ public class MainActivity extends AppCompatActivity {
         try {
             double offerFare = Double.parseDouble(raw);
             double minRate = getMinBreakEvenRatePerKm();
-            double maxSafeKm = minRate > 0 ? (offerFare / minRate) : 0.0;
-            tvFlashFareResult.setText(String.format(Locale.US, "INCLUDING PICKUP & DROP: Max %.1f km", maxSafeKm));
+            double maxSafeKm = offerFare / minRate;
+            tvFlashFareResult.setText(String.format(Locale.US, "INCLUDING PICKUP & DROP: Max %.1f km (@₹%.1f/km)", maxSafeKm, minRate));
         } catch (Exception e) {
             tvFlashFareResult.setText("INCLUDING PICKUP & DROP: Max -- km");
         }
@@ -1292,7 +1403,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void refreshQuickPlatformSpinner() {
         if (spnQuickPlatform == null) return;
-        spnQuickPlatform.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, speechPlatformsList));
+        spnQuickPlatform.setAdapter(createWhiteSpinnerAdapter(speechPlatformsList));
     }
 
     private void addDynamicExpenseRowEntry(Context ctx, LinearLayout container, CustomExpense expenseData) {
@@ -1304,6 +1415,7 @@ public class MainActivity extends AppCompatActivity {
         etNameInput.setHint("Label (EMI)");
         etNameInput.setText(expenseData.name);
         etNameInput.setTextColor(0xFFFFFFFF);
+        etNameInput.setHintTextColor(0xFFCFD8DC);
         etNameInput.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.2f));
         rowLine.addView(etNameInput);
 
@@ -1312,14 +1424,18 @@ public class MainActivity extends AppCompatActivity {
         etAmtInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         etAmtInput.setText(expenseData.amount <= 0 ? "" : String.valueOf(expenseData.amount));
         etAmtInput.setTextColor(0xFFFFFFFF);
+        etAmtInput.setHintTextColor(0xFFCFD8DC);
         etAmtInput.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.9f));
         rowLine.addView(etAmtInput);
 
         final Spinner spnPeriodInput = new Spinner(ctx);
-        String[] opts = {"Daily", "Monthly", "Yearly"};
-        spnPeriodInput.setAdapter(new ArrayAdapter<>(ctx, android.R.layout.simple_spinner_item, opts));
-        for (int i = 0; i < opts.length; i++) {
-            if (opts[i].equalsIgnoreCase(expenseData.period)) spnPeriodInput.setSelection(i);
+        ArrayList<String> opts = new ArrayList<>();
+        opts.add("Daily");
+        opts.add("Monthly");
+        opts.add("Yearly");
+        spnPeriodInput.setAdapter(createWhiteSpinnerAdapter(opts));
+        for (int i = 0; i < opts.size(); i++) {
+            if (opts.get(i).equalsIgnoreCase(expenseData.period)) spnPeriodInput.setSelection(i);
         }
         spnPeriodInput.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.1f));
         rowLine.addView(spnPeriodInput);
@@ -1530,6 +1646,7 @@ public class MainActivity extends AppCompatActivity {
 
             String savedLog = readPrefAsString("terminalLog", "");
             if (!savedLog.isEmpty() && tvTerminalLog != null) {
+                tvTerminalLog.setTextColor(0xFFFFFFFF);
                 tvTerminalLog.setText(savedLog);
             }
         } catch (Exception ignored) {
@@ -1718,6 +1835,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateWaitingTimeDisplayField() {
         if (tvWaitTime == null) return;
+        tvWaitTime.setTextColor(0xFFFFFFFF);
         long min = (totalWaitingTimeMs / 1000) / 60;
         tvWaitTime.setText("Idle: " + (min / 60) + "H " + (min % 60) + "M");
     }
@@ -1725,6 +1843,8 @@ public class MainActivity extends AppCompatActivity {
     private void refreshSystemButtonUI() {
         try {
             if (btnAppToggle != null && btnTripToggle != null) {
+                btnAppToggle.setTextColor(0xFFFFFFFF);
+                btnTripToggle.setTextColor(0xFFFFFFFF);
                 if (isAppStarted) {
                     btnAppToggle.setText("App Stop");
                     btnAppToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFCC0000));
@@ -1746,7 +1866,7 @@ public class MainActivity extends AppCompatActivity {
             }
             if (tvVehicleStatus != null && !regNumber.isEmpty()) {
                 tvVehicleStatus.setText(vehicleName + " [" + regNumber + "] | Fix: ₹" + String.format(Locale.US, "%.0f/d", dailyStandingCost));
-                tvVehicleStatus.setTextColor(isAppStarted ? 0xFF00E676 : 0xFFFF5252);
+                tvVehicleStatus.setTextColor(isAppStarted ? 0xFF00E676 : 0xFFFFFFFF);
             }
         } catch (Exception ignored) {}
     }
@@ -1754,6 +1874,7 @@ public class MainActivity extends AppCompatActivity {
     private void logToTerminal(String message) {
         try {
             if (tvTerminalLog == null) return;
+            tvTerminalLog.setTextColor(0xFFFFFFFF);
             String timestamp = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
             tvTerminalLog.append(timestamp + " " + message + "\n");
             if (svTerminal != null) {
@@ -1771,13 +1892,14 @@ public class MainActivity extends AppCompatActivity {
         EditText et = new EditText(ctx);
         et.setText(text);
         et.setTextColor(0xFFFFFFFF);
-        et.setHintTextColor(0xFFB0BEC5);
+        et.setHintTextColor(0xFFCFD8DC);
         container.addView(et);
         return et;
     }
 
     private void calculateRemainingWorkingDaysSafe() {
         if (tvDaysLeft == null) return;
+        tvDaysLeft.setTextColor(0xFFFFFFFF);
         Calendar cal = Calendar.getInstance();
         int todayDay = cal.get(Calendar.DAY_OF_MONTH);
         int maxDay = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
