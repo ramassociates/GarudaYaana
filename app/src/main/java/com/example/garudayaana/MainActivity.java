@@ -11,8 +11,10 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.Settings;
 import android.speech.SpeechRecognizer;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -34,6 +36,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.FileProvider;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -44,7 +47,6 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Scanner;
 import java.util.concurrent.Executors;
 
@@ -174,212 +176,219 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        try {
+            setContentView(R.layout.activity_main);
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        shiftPrefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            shiftPrefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
 
-        // Map Views
-        tvVehicleStatus = findViewById(R.id.tvVehicleStatus);
-        tvDaysLeft = findViewById(R.id.tvDaysLeft);
-        tvLiveNetProfit = findViewById(R.id.tvLiveNetProfit);
-        tvTargetGap = findViewById(R.id.tvTargetGap);
-        tvDailyGrossTarget = findViewById(R.id.tvDailyGrossTarget);
-        tvMonthlyGrossTarget = findViewById(R.id.tvMonthlyGrossTarget);
-        tvYearlyGrossTarget = findViewById(R.id.tvYearlyGrossTarget);
-        tvMinReqAvg = findViewById(R.id.tvMinReqAvg);
-        tvCurrentAvg = findViewById(R.id.tvCurrentAvg);
-        tvOdoMeter = findViewById(R.id.tvOdoMeter);
-        tvTotalDist = findViewById(R.id.tvTotalDist);
-        tvOrdersToday = findViewById(R.id.tvOrdersToday);
-        tvWaitTime = findViewById(R.id.tvWaitTime);
-        tvDryRun = findViewById(R.id.tvDryRun);
-        tvAvgFuelCons = findViewById(R.id.tvAvgFuelCons);
-        tvAvailFuel = findViewById(R.id.tvAvailFuel);
-        tvEarnings = findViewById(R.id.tvEarnings);
-        tvTerminalLog = findViewById(R.id.tvTerminalLog);
-        tvTrainData = findViewById(R.id.tvTrainData);
-        svTerminal = findViewById(R.id.svTerminal);
+            // Map Views
+            tvVehicleStatus = findViewById(R.id.tvVehicleStatus);
+            tvDaysLeft = findViewById(R.id.tvDaysLeft);
+            tvLiveNetProfit = findViewById(R.id.tvLiveNetProfit);
+            tvTargetGap = findViewById(R.id.tvTargetGap);
+            tvDailyGrossTarget = findViewById(R.id.tvDailyGrossTarget);
+            tvMonthlyGrossTarget = findViewById(R.id.tvMonthlyGrossTarget);
+            tvYearlyGrossTarget = findViewById(R.id.tvYearlyGrossTarget);
+            tvMinReqAvg = findViewById(R.id.tvMinReqAvg);
+            tvCurrentAvg = findViewById(R.id.tvCurrentAvg);
+            tvOdoMeter = findViewById(R.id.tvOdoMeter);
+            tvTotalDist = findViewById(R.id.tvTotalDist);
+            tvOrdersToday = findViewById(R.id.tvOrdersToday);
+            tvWaitTime = findViewById(R.id.tvWaitTime);
+            tvDryRun = findViewById(R.id.tvDryRun);
+            tvAvgFuelCons = findViewById(R.id.tvAvgFuelCons);
+            tvAvailFuel = findViewById(R.id.tvAvailFuel);
+            tvEarnings = findViewById(R.id.tvEarnings);
+            tvTerminalLog = findViewById(R.id.tvTerminalLog);
+            tvTrainData = findViewById(R.id.tvTrainData);
+            svTerminal = findViewById(R.id.svTerminal);
 
-        tvPlatformFeasibility = findViewById(R.id.tvPlatformFeasibility);
-        tvFlashOfferGuide = findViewById(R.id.tvFlashOfferGuide);
-        tvFlashFareResult = findViewById(R.id.tvFlashFareResult);
-        tvRange1to3 = findViewById(R.id.tvRange1to3);
-        tvRange4to6 = findViewById(R.id.tvRange4to6);
-        tvRange7to10 = findViewById(R.id.tvRange7to10);
+            tvPlatformFeasibility = findViewById(R.id.tvPlatformFeasibility);
+            tvFlashOfferGuide = findViewById(R.id.tvFlashOfferGuide);
+            tvFlashFareResult = findViewById(R.id.tvFlashFareResult);
+            tvRange1to3 = findViewById(R.id.tvRange1to3);
+            tvRange4to6 = findViewById(R.id.tvRange4to6);
+            tvRange7to10 = findViewById(R.id.tvRange7to10);
 
-        spnQuickPlatform = findViewById(R.id.spnQuickPlatform);
-        etTotalRevenueInput = findViewById(R.id.etTotalRevenueInput);
-        etFlashFareCheck = findViewById(R.id.etFlashFareCheck);
-        btnUpdateRevenue = findViewById(R.id.btnUpdateRevenue);
+            spnQuickPlatform = findViewById(R.id.spnQuickPlatform);
+            etTotalRevenueInput = findViewById(R.id.etTotalRevenueInput);
+            etFlashFareCheck = findViewById(R.id.etFlashFareCheck);
+            btnUpdateRevenue = findViewById(R.id.btnUpdateRevenue);
 
-        btnAppToggle = findViewById(R.id.btnAppToggle);
-        Button btnExitApp = findViewById(R.id.btnExitApp);
-        btnTripToggle = findViewById(R.id.btnTripToggle);
-        Button btnVehicleConfig = findViewById(R.id.btnVehicleConfig);
-        Button btnSubPlan = findViewById(R.id.btnSubPlan);
-        Button btnShareCSV = findViewById(R.id.btnShareCSV);
-        Button btnTips = findViewById(R.id.btnTips);
-        Button btnExpense = findViewById(R.id.btnExpense);
+            btnAppToggle = findViewById(R.id.btnAppToggle);
+            Button btnExitApp = findViewById(R.id.btnExitApp);
+            btnTripToggle = findViewById(R.id.btnTripToggle);
+            Button btnVehicleConfig = findViewById(R.id.btnVehicleConfig);
+            Button btnSubPlan = findViewById(R.id.btnSubPlan);
+            Button btnShareCSV = findViewById(R.id.btnShareCSV);
+            Button btnTips = findViewById(R.id.btnTips);
+            Button btnExpense = findViewById(R.id.btnExpense);
 
-        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        initializeSpeechRecognizerEngine();
+            locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+            initializeSpeechRecognizerEngine();
 
-        calculateRemainingWorkingDays();
-        checkDisclaimerAndProfileInitialize();
-        restoreShiftStateFromStorage();
-        refreshQuickPlatformSpinner();
-        triggerDynamicSystemPermissionsScan();
+            calculateRemainingWorkingDays();
+            restoreShiftStateFromStorage();
+            refreshQuickPlatformSpinner();
 
-        if (isAppStarted) {
-            startIdlePassiveTrackingEngine();
-            if (isTripStarted) {
-                resumeActiveTripListener();
-            }
-        }
-        updateWaitingTimeDisplayField();
-        updateLiveDashboardMetrics();
-        refreshSystemButtonUI();
-
-        // Instant One-Flash Fare Checker Watcher
-        etFlashFareCheck.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                updateFlashFareInstantResult();
-            }
-            @Override public void afterTextChanged(Editable s) {}
-        });
-
-        // 1) APP ENGINE SWITCH CONTROL (Resets day only on APP STOP)
-        btnAppToggle.setOnClickListener(v -> {
-            if (regNumber.isEmpty()) {
-                Toast.makeText(this, "Configure vehicle profile or Use Demo first!", Toast.LENGTH_LONG).show();
-                showFirstTimeSetupChoiceDialog();
-                return;
-            }
-            if (!isAppStarted) {
-                showShiftStartDialog();
-            } else {
+            if (isAppStarted) {
+                startIdlePassiveTrackingEngine();
                 if (isTripStarted) {
-                    stopGPSTrackingEngine();
+                    resumeActiveTripListener();
                 }
-                double shiftTotalKm = getTotalShiftKm();
-                appendTripRecordToCSVFile("DAY_SHIFT_END", dailyEarningsSum);
-                vehicleOdoBaseline += shiftTotalKm;
-
-                isAppStarted = false;
-                isTripStarted = false;
-                accumulatedDistanceKm = 0.0;
-                dryRunDistanceKm = 0.0;
-                dailyEarningsSum = 0.0;
-                dailyOrdersCount = 0;
-                dailySpotExpenses = 0.0;
-                totalWaitingTimeMs = 0;
-                tripStopTimestamp = 0;
-                previousLocation = null;
-                platformRevenueMap.clear();
-                platformExpenseMap.clear();
-                platformSubInfoMap.clear();
-
-                saveAdvancedProfileToCSV();
-                clearPersistedShiftState();
-                stopIdlePassiveTrackingEngine();
-                updateWaitingTimeDisplayField();
-                updateLiveDashboardMetrics();
-                refreshSystemButtonUI();
-                logToTerminal("APP STOP: Day closed & saved.");
             }
-        });
+            updateWaitingTimeDisplayField();
+            updateLiveDashboardMetrics();
+            refreshSystemButtonUI();
 
-        // 2) PLATFORM-SPECIFIC REVENUE UPDATE
-        btnUpdateRevenue.setOnClickListener(v -> {
-            String rawRev = etTotalRevenueInput.getText().toString().trim();
-            if (rawRev.isEmpty()) {
-                Toast.makeText(this, "Enter platform revenue collected!", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            try {
-                double platformAmt = Double.parseDouble(rawRev);
-                String selectedPlatform = (spnQuickPlatform.getSelectedItem() != null)
-                        ? spnQuickPlatform.getSelectedItem().toString() : "DIRECT";
+            // Post initialization dialogs safely after layout attaches
+            findViewById(android.R.id.content).post(() -> {
+                triggerDynamicSystemPermissionsScan();
+                checkDisclaimerAndProfileInitialize();
+            });
 
-                platformRevenueMap.put(selectedPlatform, platformAmt);
-
-                // Recompute total daily earnings across all platforms
-                double sum = 0.0;
-                for (double val : platformRevenueMap.values()) {
-                    sum += val;
+            // Instant One-Flash Fare Checker Watcher
+            etFlashFareCheck.addTextChangedListener(new TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    updateFlashFareInstantResult();
                 }
-                dailyEarningsSum = sum;
-                dailyOrdersCount++;
-                etTotalRevenueInput.setText("");
+                @Override public void afterTextChanged(Editable s) {}
+            });
 
-                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                if (imm != null) imm.hideSoftInputFromWindow(etTotalRevenueInput.getWindowToken(), 0);
+            // 1) APP ENGINE SWITCH CONTROL
+            btnAppToggle.setOnClickListener(v -> {
+                if (regNumber.isEmpty()) {
+                    Toast.makeText(this, "Configure vehicle profile or Use Demo first!", Toast.LENGTH_LONG).show();
+                    showFirstTimeSetupChoiceDialog();
+                    return;
+                }
+                if (!isAppStarted) {
+                    showShiftStartDialog();
+                } else {
+                    if (isTripStarted) {
+                        stopGPSTrackingEngine();
+                    }
+                    double shiftTotalKm = getTotalShiftKm();
+                    appendTripRecordToCSVFile("DAY_SHIFT_END", dailyEarningsSum);
+                    vehicleOdoBaseline += shiftTotalKm;
 
-                updateLiveDashboardMetrics();
-                persistShiftStateToStorage();
-                appendTripRecordToCSVFile("REV_" + selectedPlatform, platformAmt);
-                logToTerminal(selectedPlatform + " Rev: ₹" + String.format(Locale.US, "%.0f", platformAmt)
-                        + " | Tot: ₹" + String.format(Locale.US, "%.0f", dailyEarningsSum));
-            } catch (Exception e) {
-                Toast.makeText(this, "Invalid revenue amount.", Toast.LENGTH_SHORT).show();
-            }
-        });
+                    isAppStarted = false;
+                    isTripStarted = false;
+                    accumulatedDistanceKm = 0.0;
+                    dryRunDistanceKm = 0.0;
+                    dailyEarningsSum = 0.0;
+                    dailyOrdersCount = 0;
+                    dailySpotExpenses = 0.0;
+                    totalWaitingTimeMs = 0;
+                    tripStopTimestamp = 0;
+                    previousLocation = null;
+                    platformRevenueMap.clear();
+                    platformExpenseMap.clear();
+                    platformSubInfoMap.clear();
 
-        // 3) EXIT APPLICATION COMMAND (Preserves shift data)
-        btnExitApp.setOnClickListener(v -> {
-            persistShiftStateToStorage();
-            finishAffinity();
-        });
+                    saveAdvancedProfileToCSV();
+                    clearPersistedShiftState();
+                    stopIdlePassiveTrackingEngine();
+                    updateWaitingTimeDisplayField();
+                    updateLiveDashboardMetrics();
+                    refreshSystemButtonUI();
+                    logToTerminal("APP STOP: Day closed & saved.");
+                }
+            });
 
-        // 4) TRIP SATELLITE CONTROL
-        btnTripToggle.setOnClickListener(v -> {
-            if (!isAppStarted) {
-                Toast.makeText(this, "Press App Start first!", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (!isTripStarted) {
-                startTripSequence();
-            } else {
-                stopGPSTrackingEngine();
-            }
-        });
-
-        // 5) SUBSCRIPTION PLAN ACTIVATION SHORTCUT
-        btnSubPlan.setOnClickListener(v -> showSubscriptionPlanDialog());
-
-        // 6) QUICK LIVE SPOT INCOME (TIPS)
-        btnTips.setOnClickListener(v -> {
-            AlertDialog.Builder b = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-            b.setTitle("Add Tip / Bonus Received (₹)");
-            final EditText etTip = new EditText(this);
-            etTip.setHint("Tip Amount (₹)");
-            etTip.setTextColor(0xFFFFFFFF);
-            etTip.setHintTextColor(0xFFB0BEC5);
-            etTip.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
-            b.setView(etTip);
-            b.setPositiveButton("Add", (d, w) -> {
+            // 2) PLATFORM-SPECIFIC REVENUE UPDATE
+            btnUpdateRevenue.setOnClickListener(v -> {
+                String rawRev = etTotalRevenueInput.getText().toString().trim();
+                if (rawRev.isEmpty()) {
+                    Toast.makeText(this, "Enter platform revenue collected!", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 try {
-                    double tip = Double.parseDouble(etTip.getText().toString().trim());
-                    double curTips = platformRevenueMap.containsKey("TIPS") ? platformRevenueMap.get("TIPS") : 0.0;
-                    platformRevenueMap.put("TIPS", curTips + tip);
-                    dailyEarningsSum += tip;
+                    double platformAmt = Double.parseDouble(rawRev);
+                    String selectedPlatform = (spnQuickPlatform.getSelectedItem() != null)
+                            ? spnQuickPlatform.getSelectedItem().toString() : "DIRECT";
+
+                    platformRevenueMap.put(selectedPlatform, platformAmt);
+
+                    double sum = 0.0;
+                    for (double val : platformRevenueMap.values()) {
+                        sum += val;
+                    }
+                    dailyEarningsSum = sum;
+                    dailyOrdersCount++;
+                    etTotalRevenueInput.setText("");
+
+                    InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                    if (imm != null) imm.hideSoftInputFromWindow(etTotalRevenueInput.getWindowToken(), 0);
+
                     updateLiveDashboardMetrics();
                     persistShiftStateToStorage();
-                    logToTerminal("TIP: +₹" + String.format(Locale.US, "%.0f", tip));
-                    appendTripRecordToCSVFile("TIP_INCOME", tip);
-                } catch (Exception ignored) {}
+                    appendTripRecordToCSVFile("REV_" + selectedPlatform, platformAmt);
+                    logToTerminal(selectedPlatform + " Rev: ₹" + String.format(Locale.US, "%.0f", platformAmt)
+                            + " | Tot: ₹" + String.format(Locale.US, "%.0f", dailyEarningsSum));
+                } catch (Exception e) {
+                    Toast.makeText(this, "Invalid revenue amount.", Toast.LENGTH_SHORT).show();
+                }
             });
-            b.show();
-        });
 
-        // 7) SPOT / HIDDEN PLATFORM EXPENSES SHORTCUT
-        btnExpense.setOnClickListener(v -> showSpotOrHiddenExpenseDialog());
+            // 3) EXIT APPLICATION COMMAND
+            btnExitApp.setOnClickListener(v -> {
+                persistShiftStateToStorage();
+                finishAffinity();
+            });
 
-        // 8) CENTRAL CONFIG HUB & SHARE
-        btnVehicleConfig.setOnClickListener(v -> showCentralConfigLandingMenu());
-        btnShareCSV.setOnClickListener(v -> dispatchShareMasterSheet());
+            // 4) TRIP SATELLITE CONTROL
+            btnTripToggle.setOnClickListener(v -> {
+                if (!isAppStarted) {
+                    Toast.makeText(this, "Press App Start first!", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (!isTripStarted) {
+                    startTripSequence();
+                } else {
+                    stopGPSTrackingEngine();
+                }
+            });
+
+            // 5) SUBSCRIPTION PLAN ACTIVATION SHORTCUT
+            btnSubPlan.setOnClickListener(v -> showSubscriptionPlanDialog());
+
+            // 6) QUICK LIVE SPOT INCOME (TIPS)
+            btnTips.setOnClickListener(v -> {
+                AlertDialog.Builder b = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+                b.setTitle("Add Tip / Bonus Received (₹)");
+                final EditText etTip = new EditText(this);
+                etTip.setHint("Tip Amount (₹)");
+                etTip.setTextColor(0xFFFFFFFF);
+                etTip.setHintTextColor(0xFFB0BEC5);
+                etTip.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+                b.setView(etTip);
+                b.setPositiveButton("Add", (d, w) -> {
+                    try {
+                        double tip = Double.parseDouble(etTip.getText().toString().trim());
+                        double curTips = platformRevenueMap.containsKey("TIPS") ? platformRevenueMap.get("TIPS") : 0.0;
+                        platformRevenueMap.put("TIPS", curTips + tip);
+                        dailyEarningsSum += tip;
+                        updateLiveDashboardMetrics();
+                        persistShiftStateToStorage();
+                        logToTerminal("TIP: +₹" + String.format(Locale.US, "%.0f", tip));
+                        appendTripRecordToCSVFile("TIP_INCOME", tip);
+                    } catch (Exception ignored) {}
+                });
+                b.show();
+            });
+
+            // 7) SPOT / HIDDEN PLATFORM EXPENSES SHORTCUT
+            btnExpense.setOnClickListener(v -> showSpotOrHiddenExpenseDialog());
+
+            // 8) CENTRAL CONFIG HUB & SHARE
+            btnVehicleConfig.setOnClickListener(v -> showCentralConfigLandingMenu());
+            btnShareCSV.setOnClickListener(v -> dispatchShareMasterSheet());
+        } catch (Exception fatalEx) {
+            Toast.makeText(this, "Startup Notice: " + fatalEx.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override
@@ -395,6 +404,58 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // ==========================================
+    // ALL FILES ACCESS & RUNTIME PERMISSIONS
+    // ==========================================
+    private boolean hasFullFileAccessPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager();
+        }
+        return ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void promptForAllFilesAccessPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+            new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                    .setTitle("Allow File Management Permission")
+                    .setMessage("To read, write, rename, backup, and delete vehicle CSV files in Documents/GarudaYaana, please enable 'Allow access to manage all files' for GarudaYaana.")
+                    .setPositiveButton("Open File Settings", (d, w) -> {
+                        try {
+                            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                            intent.setData(Uri.parse("package:" + getPackageName()));
+                            startActivity(intent);
+                        } catch (Exception e) {
+                            Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                            startActivity(intent);
+                        }
+                    })
+                    .setNegativeButton("Use App Storage", null)
+                    .show();
+        }
+    }
+
+    private void triggerDynamicSystemPermissionsScan() {
+        ArrayList<String> perms = new ArrayList<>();
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            perms.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        }
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            perms.add(Manifest.permission.RECORD_AUDIO);
+        }
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                perms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            }
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                perms.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+            }
+        }
+        if (!perms.isEmpty()) {
+            ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), PERMISSION_MASTER_CODE);
+        }
+    }
+
+    // ==========================================
     // DISCLAIMER & FIRST-TIME DEMO / SETUP WIZARD
     // ==========================================
     private void checkDisclaimerAndProfileInitialize() {
@@ -406,6 +467,9 @@ public class MainActivity extends AppCompatActivity {
             b.setCancelable(false);
             b.setPositiveButton("I Understand & Accept", (d, w) -> {
                 shiftPrefs.edit().putBoolean("disclaimerAccepted", true).apply();
+                if (!hasFullFileAccessPermission()) {
+                    promptForAllFilesAccessPermission();
+                }
                 loadExistingOrPromptSetup();
             });
             b.setNegativeButton("Exit App", (d, w) -> finishAffinity());
@@ -416,14 +480,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadExistingOrPromptSetup() {
-        File dir = getStorageDirectory();
-        File[] files = dir.listFiles((dir1, name) -> name.startsWith("garuda_yana_") && name.endsWith(".csv"));
-        if (files == null || files.length == 0) {
+        try {
+            File dir = getStorageDirectory();
+            File[] files = dir.listFiles((dir1, name) -> name.startsWith("garuda_yana_") && name.endsWith(".csv"));
+            if (files == null || files.length == 0) {
+                regNumber = "";
+                vehicleName = "";
+                showFirstTimeSetupChoiceDialog();
+            } else {
+                parseAdvancedVehicleCSV(files[0]);
+            }
+        } catch (Exception e) {
             regNumber = "";
-            vehicleName = "";
-            findViewById(android.R.id.content).post(this::showFirstTimeSetupChoiceDialog);
-        } else {
-            parseAdvancedVehicleCSV(files[0]);
+            showFirstTimeSetupChoiceDialog();
         }
     }
 
@@ -727,7 +796,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void calculateMathematicalDailyStandingCost30Day() {
-        // 30-day monthly normalization (Annual = 12 * 30 = 360 days)
         double dailyInsurance = insuranceAmount / 360.0;
         double dailyRoadTax = roadTaxAmount / 360.0;
         double dailyPollution = pollutionAmount / 360.0;
@@ -758,14 +826,11 @@ public class MainActivity extends AppCompatActivity {
         double remainingFuelValueRs = shiftStartFuelValueRs - liveFuelExpense;
         if (remainingFuelValueRs < 0) remainingFuelValueRs = 0;
 
-        // Minimum Operating Expenditure = Standing Cost + Fuel + Tyre Wear + Spot/Subscription/Hidden Expenses
         minOperatingExpenditure = dailyStandingCost + liveFuelExpense + liveTyreWearExpense + dailySpotExpenses;
 
-        // Live Net Profit & Target Gap
         double liveNetProfit = dailyEarningsSum - minOperatingExpenditure;
         double targetGap = dailyNetIncomeGoal - liveNetProfit;
 
-        // 30-Day Gross Target (Standing + Proposed Net Income + Today's Variable/Spot Expenses)
         double dailyGrossTarget = dailyStandingCost + dailyNetIncomeGoal + liveFuelExpense + liveTyreWearExpense + dailySpotExpenses;
         double monthlyGrossTarget = (dailyStandingCost + dailyNetIncomeGoal) * 30.0;
         double yearlyGrossTarget = monthlyGrossTarget * 12.0;
@@ -799,7 +864,7 @@ public class MainActivity extends AppCompatActivity {
         tvAvailFuel.setText("Rem Fuel Val: ₹" + String.format(Locale.US, "%.0f", remainingFuelValueRs));
 
         updatePlatformFeasibilityBanner(totalShiftKm, totalRunCostPerKm);
-        updateFeasibilityRangeChart(totalRunCostPerKm);
+        updateFeasibilityRangeChart();
         updateFlashFareInstantResult();
     }
 
@@ -819,7 +884,6 @@ public class MainActivity extends AppCompatActivity {
             double exp = platformExpenseMap.containsKey(plat) ? platformExpenseMap.get(plat) : 0.0;
             if (rev <= 0 && exp <= 0) continue;
 
-            // Prorate running cost (Fuel + Tyre) by platform's revenue share
             double shareRatio = (totalPlatformRev > 0) ? (rev / totalPlatformRev) : 1.0;
             double allocatedRunCost = (totalShiftKm * totalRunCostPerKm) * shareRatio;
             double platNet = rev - exp - allocatedRunCost;
@@ -839,14 +903,13 @@ public class MainActivity extends AppCompatActivity {
 
     private double getMinBreakEvenRatePerKm() {
         double totalRunCostPerKm = getTotalPerKmWearAndFuelCost();
-        double standingPerKm = dailyStandingCost / 120.0; // Standard 120 km cab duty cycle
+        double standingPerKm = dailyStandingCost / 120.0;
         return totalRunCostPerKm + standingPerKm;
     }
 
-    private void updateFeasibilityRangeChart(double totalRunCostPerKm) {
+    private void updateFeasibilityRangeChart() {
         double minBreakEvenPerKm = getMinBreakEvenRatePerKm();
 
-        // One-Flash Guide for ₹150, ₹280, ₹480, ₹500 INCLUDING PICKUP & DROP
         double maxKm150 = minBreakEvenPerKm > 0 ? (150.0 / minBreakEvenPerKm) : 0;
         double maxKm280 = minBreakEvenPerKm > 0 ? (280.0 / minBreakEvenPerKm) : 0;
         double maxKm480 = minBreakEvenPerKm > 0 ? (480.0 / minBreakEvenPerKm) : 0;
@@ -856,17 +919,14 @@ public class MainActivity extends AppCompatActivity {
                 "INCLUDING PICKUP & DROP MAX KM -> ₹150: %.1fkm | ₹280: %.1fkm | ₹480: %.1fkm | ₹500: %.1fkm",
                 maxKm150, maxKm280, maxKm480, maxKm500));
 
-        // Slot 1: 1 - 3 km
         tvRange1to3.setText(String.format(Locale.US, "1–3 km\nMin: ₹%.0f–%.0f\nCur: ₹%.0f–%.0f",
                 Math.ceil(1.0 * minBreakEvenPerKm), Math.ceil(3.0 * minBreakEvenPerKm),
                 Math.round(1.0 * currentRatePerKm), Math.round(3.0 * currentRatePerKm)));
 
-        // Slot 2: 4 - 6 km
         tvRange4to6.setText(String.format(Locale.US, "4–6 km\nMin: ₹%.0f–%.0f\nCur: ₹%.0f–%.0f",
                 Math.ceil(4.0 * minBreakEvenPerKm), Math.ceil(6.0 * minBreakEvenPerKm),
                 Math.round(4.0 * currentRatePerKm), Math.round(6.0 * currentRatePerKm)));
 
-        // Slot 3: 7 - 10 km
         tvRange7to10.setText(String.format(Locale.US, "7–10 km\nMin: ₹%.0f–%.0f\nCur: ₹%.0f–%.0f",
                 Math.ceil(7.0 * minBreakEvenPerKm), Math.ceil(10.0 * minBreakEvenPerKm),
                 Math.round(7.0 * currentRatePerKm), Math.round(10.0 * currentRatePerKm)));
@@ -890,7 +950,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // ==========================================
-    // CENTRAL CONFIG HUB (WITH USE DEMO, FULL RESET & DISCLAIMER)
+    // CENTRAL CONFIG HUB (CSV FILE RENAME / BACKUP / DELETE + USE DEMO + RESET)
     // ==========================================
     private void showCentralConfigLandingMenu() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
@@ -898,9 +958,11 @@ public class MainActivity extends AppCompatActivity {
 
         final AlertDialog[] landingDialog = new AlertDialog[1];
 
+        ScrollView scroll = new ScrollView(this);
         LinearLayout mainLayout = new LinearLayout(this);
         mainLayout.setOrientation(LinearLayout.VERTICAL);
         mainLayout.setPadding(40, 25, 40, 25);
+        scroll.addView(mainLayout);
 
         Button btnVeh = new Button(this);
         btnVeh.setText("1. Vehicle, Tyres & Refill");
@@ -932,8 +994,31 @@ public class MainActivity extends AppCompatActivity {
         });
         mainLayout.addView(btnApps);
 
+        Button btnFileMgr = new Button(this);
+        btnFileMgr.setText("4. CSV File Manager (Rename / Backup / Delete)");
+        btnFileMgr.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF4527A0));
+        btnFileMgr.setTextColor(0xFFFFFFFF);
+        btnFileMgr.setOnClickListener(v -> {
+            if (landingDialog[0] != null) landingDialog[0].dismiss();
+            showCsvFileManagerDialog();
+        });
+        mainLayout.addView(btnFileMgr);
+
+        Button btnFilePerm = new Button(this);
+        btnFilePerm.setText(hasFullFileAccessPermission()
+                ? "5. File Storage Permission: GRANTED"
+                : "5. Grant File Storage Permission (All Files)");
+        btnFilePerm.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                hasFullFileAccessPermission() ? 0xFF2E7D32 : 0xFFD84315));
+        btnFilePerm.setTextColor(0xFFFFFFFF);
+        btnFilePerm.setOnClickListener(v -> {
+            if (landingDialog[0] != null) landingDialog[0].dismiss();
+            promptForAllFilesAccessPermission();
+        });
+        mainLayout.addView(btnFilePerm);
+
         Button btnDemo = new Button(this);
-        btnDemo.setText("4. Use Demo Vehicle Setup");
+        btnDemo.setText("6. Use Demo Vehicle Setup");
         btnDemo.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF283593));
         btnDemo.setTextColor(0xFFFFFFFF);
         btnDemo.setOnClickListener(v -> {
@@ -943,7 +1028,7 @@ public class MainActivity extends AppCompatActivity {
         mainLayout.addView(btnDemo);
 
         Button btnFullReset = new Button(this);
-        btnFullReset.setText("5. Full Reset (Delete Local CSV & Data)");
+        btnFullReset.setText("7. Full Reset (Delete All CSV & Shift Data)");
         btnFullReset.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFB71C1C));
         btnFullReset.setTextColor(0xFFFFFFFF);
         btnFullReset.setOnClickListener(v -> {
@@ -953,7 +1038,7 @@ public class MainActivity extends AppCompatActivity {
         mainLayout.addView(btnFullReset);
 
         Button btnDisclaimer = new Button(this);
-        btnDisclaimer.setText("6. View Terms & Disclaimer");
+        btnDisclaimer.setText("8. View Terms & Disclaimer");
         btnDisclaimer.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF424242));
         btnDisclaimer.setTextColor(0xFFFFFFFF);
         btnDisclaimer.setOnClickListener(v -> {
@@ -965,11 +1050,117 @@ public class MainActivity extends AppCompatActivity {
         });
         mainLayout.addView(btnDisclaimer);
 
-        builder.setView(mainLayout);
+        builder.setView(scroll);
         builder.setNegativeButton("Close", (dialog, which) -> dialog.dismiss());
 
         landingDialog[0] = builder.create();
         landingDialog[0].show();
+    }
+
+    private void showCsvFileManagerDialog() {
+        File dir = getStorageDirectory();
+        File[] files = dir.listFiles((d, name) -> name.endsWith(".csv"));
+        if (files == null || files.length == 0) {
+            Toast.makeText(this, "No CSV files found in " + dir.getAbsolutePath(), Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        String[] names = new String[files.length];
+        for (int i = 0; i < files.length; i++) {
+            names[i] = files[i].getName();
+        }
+
+        new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle("Select CSV File (" + dir.getName() + ")")
+                .setItems(names, (d, idx) -> showSingleCsvActionDialog(files[idx]))
+                .setNegativeButton("Close", null)
+                .show();
+    }
+
+    private void showSingleCsvActionDialog(final File targetFile) {
+        String[] actions = {"Backup CSV (Create Timestamped Copy)", "Rename CSV File", "Delete CSV File", "Share / Export CSV"};
+        new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle(targetFile.getName())
+                .setItems(actions, (d, which) -> {
+                    if (which == 0) {
+                        backupCsvFile(targetFile);
+                    } else if (which == 1) {
+                        renameCsvFilePrompt(targetFile);
+                    } else if (which == 2) {
+                        deleteCsvFilePrompt(targetFile);
+                    } else if (which == 3) {
+                        shareSpecificFile(targetFile);
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void backupCsvFile(File sourceFile) {
+        try {
+            String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+            String baseName = sourceFile.getName().replace(".csv", "");
+            File backupFile = new File(sourceFile.getParentFile(), baseName + "_BACKUP_" + stamp + ".csv");
+            try (FileInputStream in = new FileInputStream(sourceFile);
+                 FileOutputStream out = new FileOutputStream(backupFile)) {
+                byte[] buf = new byte[4096];
+                int len;
+                while ((len = in.read(buf)) > 0) {
+                    out.write(buf, 0, len);
+                }
+            }
+            logToTerminal("BACKUP: " + backupFile.getName());
+            Toast.makeText(this, "Backup created: " + backupFile.getName(), Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Backup failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void renameCsvFilePrompt(File sourceFile) {
+        final EditText etNewName = new EditText(this);
+        etNewName.setText(sourceFile.getName().replace(".csv", ""));
+        etNewName.setTextColor(0xFFFFFFFF);
+        new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle("Rename CSV File")
+                .setView(etNewName)
+                .setPositiveButton("Rename", (d, w) -> {
+                    String clean = etNewName.getText().toString().trim().replaceAll("[^A-Za-z0-9_-]", "");
+                    if (clean.isEmpty()) return;
+                    File destFile = new File(sourceFile.getParentFile(), clean + ".csv");
+                    if (sourceFile.renameTo(destFile)) {
+                        if (clean.startsWith("garuda_yana_")) {
+                            regNumber = clean.replace("garuda_yana_", "").toUpperCase();
+                            refreshSystemButtonUI();
+                        }
+                        logToTerminal("RENAMED: " + destFile.getName());
+                        Toast.makeText(this, "Renamed to " + destFile.getName(), Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Rename failed. Check File Permission.", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void deleteCsvFilePrompt(File targetFile) {
+        new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle("Delete File?")
+                .setMessage("Permanently delete " + targetFile.getName() + "?")
+                .setPositiveButton("Delete", (d, w) -> {
+                    if (targetFile.delete()) {
+                        logToTerminal("DELETED: " + targetFile.getName());
+                        Toast.makeText(this, "Deleted " + targetFile.getName(), Toast.LENGTH_SHORT).show();
+                        if (targetFile.getName().equals("garuda_yana_" + regNumber + ".csv")) {
+                            regNumber = "";
+                            vehicleName = "";
+                            refreshSystemButtonUI();
+                        }
+                    } else {
+                        Toast.makeText(this, "Delete failed. Grant All Files Access in Config.", Toast.LENGTH_LONG).show();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void confirmAndExecuteFullReset() {
@@ -993,7 +1184,7 @@ public class MainActivity extends AppCompatActivity {
                     expenseFleetList.clear();
 
                     File dir = getStorageDirectory();
-                    File[] files = dir.listFiles((dir1, name) -> name.startsWith("garuda_yana_") && name.endsWith(".csv"));
+                    File[] files = dir.listFiles((dir1, name) -> name.endsWith(".csv"));
                     if (files != null) {
                         for (File f : files) {
                             //noinspection ResultOfMethodCallIgnored
@@ -1026,7 +1217,7 @@ public class MainActivity extends AppCompatActivity {
         scrollWrapper.addView(mainContainer);
 
         File dir = getStorageDirectory();
-        File[] files = dir.listFiles((dir1, name) -> name.startsWith("garuda_yana_") && name.endsWith(".csv"));
+        File[] files = dir.listFiles((dir1, name) -> name.startsWith("garuda_yana_") && !name.contains("_BACKUP_") && name.endsWith(".csv"));
         final ArrayList<String> registeredVehicles = new ArrayList<>();
         if (files != null) {
             for (File f : files) {
@@ -1090,7 +1281,6 @@ public class MainActivity extends AppCompatActivity {
         final EditText etFuelCap = createDialogEditText(this, "Fuel/CNG Tank Capacity (Liters/kg):", forceNewRegistration ? "9" : String.valueOf(fuelCapacity), mainContainer);
         final EditText etFuelRate = createDialogEditText(this, "Fuel/CNG Rate per Unit (₹):", forceNewRegistration ? "92" : String.valueOf(fuelRatePerUnit), mainContainer);
 
-        // Tyre Cost Inputs
         final EditText etTyreCount = createDialogEditText(this, "Total Tyres (incl. Stepney, e.g. 5):", forceNewRegistration ? "5" : String.valueOf(tyreCount), mainContainer);
         final EditText etTyrePrice = createDialogEditText(this, "Price per Tyre (₹):", forceNewRegistration ? "5500" : String.valueOf(tyreUnitPrice), mainContainer);
         final EditText etTyreLifeKm = createDialogEditText(this, "Tyre Replacement Life (km, default 30000):", forceNewRegistration ? "30000" : String.valueOf(tyreReplacementKm), mainContainer);
@@ -1337,17 +1527,29 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // ==========================================
-    // LOCAL CSV PERSISTENCE (Documents/GarudaYaana)
+    // LOCAL CSV PERSISTENCE (SAFE FALLBACK)
     // ==========================================
     private File getStorageDirectory() {
-        File docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
-        File appDir = new File(docsDir, "GarudaYaana");
-        if (!appDir.exists()) {
-            //noinspection ResultOfMethodCallIgnored
-            appDir.mkdirs();
-        }
-        if (appDir.exists() && appDir.canWrite()) {
-            return appDir;
+        try {
+            if (hasFullFileAccessPermission()) {
+                File docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+                File appDir = new File(docsDir, "GarudaYaana");
+                if (!appDir.exists()) {
+                    //noinspection ResultOfMethodCallIgnored
+                    appDir.mkdirs();
+                }
+                if (appDir.exists() && appDir.canWrite()) {
+                    return appDir;
+                }
+            }
+        } catch (Exception ignored) {}
+        File extFallback = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+        if (extFallback != null) {
+            if (!extFallback.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                extFallback.mkdirs();
+            }
+            return extFallback;
         }
         return getFilesDir();
     }
@@ -1378,6 +1580,10 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "No CSV file found for " + regNumber, Toast.LENGTH_SHORT).show();
             return;
         }
+        shareSpecificFile(targetFile);
+    }
+
+    private void shareSpecificFile(File targetFile) {
         try {
             Uri pathUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", targetFile);
             Intent shareIntent = new Intent(Intent.ACTION_SEND);
@@ -1475,7 +1681,7 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (Exception ignored) {}
         regNumber = "";
-        findViewById(android.R.id.content).post(this::showFirstTimeSetupChoiceDialog);
+        showFirstTimeSetupChoiceDialog();
     }
 
     // ==========================================
@@ -1553,27 +1759,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initializeSpeechRecognizerEngine() {
-        if (SpeechRecognizer.isRecognitionAvailable(this)) {
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
-        }
+        try {
+            if (SpeechRecognizer.isRecognitionAvailable(this)) {
+                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+            }
+        } catch (Exception ignored) {}
         if (speechPlatformsList.isEmpty()) {
             speechPlatformsList.add("UBER");
             speechPlatformsList.add("RAPIDO");
             speechPlatformsList.add("KERALA SAVARI");
             speechPlatformsList.add("DIRECT");
-        }
-    }
-
-    private void triggerDynamicSystemPermissionsScan() {
-        ArrayList<String> perms = new ArrayList<>();
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            perms.add(Manifest.permission.ACCESS_FINE_LOCATION);
-        }
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            perms.add(Manifest.permission.RECORD_AUDIO);
-        }
-        if (!perms.isEmpty()) {
-            ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), PERMISSION_MASTER_CODE);
         }
     }
 
@@ -1653,7 +1848,6 @@ public class MainActivity extends AppCompatActivity {
             double deltaMeters = location.distanceTo(previousLocation);
             double deltaKm = deltaMeters / 1000.0;
 
-            // 5-meter threshold for responsive road tracking
             if (deltaMeters >= 5.0 && deltaKm <= 25.0) {
                 if (isInsideActiveTrip) {
                     accumulatedDistanceKm += deltaKm;
