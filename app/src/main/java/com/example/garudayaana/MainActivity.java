@@ -55,7 +55,7 @@ import okhttp3.Response;
 public class MainActivity extends AppCompatActivity {
 
     private static final int PERMISSION_MASTER_CODE = 105;
-    private static final String PREFS_NAME = "GarudaYaanaCabPrefsV2";
+    private static final String PREFS_NAME = "GarudaYaanaCabPrefsV3";
     private static final String TEMPLATE_FILE_NAME = "garuda_yana_TEMPLATE.csv";
 
     private static final String DISCLAIMER_TEXT =
@@ -209,7 +209,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             ensureTemplateAndLoadVehicleProfile();
         } catch (Exception ignored) {
-            applyDemoProfileSetup();
+            setInMemoryDefaultProfile();
         }
 
         try {
@@ -298,7 +298,7 @@ public class MainActivity extends AppCompatActivity {
             btnAppToggle.setOnClickListener(v -> {
                 try {
                     if (regNumber.isEmpty()) {
-                        applyDemoProfileSetup();
+                        setInMemoryDefaultProfile();
                     }
                     if (!isAppStarted) {
                         showShiftStartDialog();
@@ -330,9 +330,7 @@ public class MainActivity extends AppCompatActivity {
                         refreshSystemButtonUI();
                         logToTerminal("APP STOP: Day closed & saved.");
                     }
-                } catch (Exception e) {
-                    Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                }
+                } catch (Exception ignored) {}
             });
         }
 
@@ -373,8 +371,10 @@ public class MainActivity extends AppCompatActivity {
         if (btnExitApp != null) {
             btnExitApp.setOnClickListener(v -> {
                 dismissActiveDialogSafely();
-                saveAdvancedProfileToCSV();
-                persistShiftStateToStorage();
+                try {
+                    saveAdvancedProfileToCSV();
+                    persistShiftStateToStorage();
+                } catch (Exception ignored) {}
                 finishAffinity();
             });
         }
@@ -496,38 +496,38 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void ensureTemplateAndLoadVehicleProfile() {
-        File dir = getStorageDirectory();
-        File templateFile = new File(dir, TEMPLATE_FILE_NAME);
-        if (!templateFile.exists() || templateFile.length() == 0) {
-            writeDefaultTemplateCsv(templateFile);
-        }
+        try {
+            File dir = getStorageDirectory();
+            File templateFile = new File(dir, TEMPLATE_FILE_NAME);
+            if (!templateFile.exists() || templateFile.length() == 0) {
+                writeDefaultTemplateCsv(templateFile);
+            }
 
-        File[] vehicleFiles = dir.listFiles((d, name) ->
-                name.startsWith("garuda_yana_")
-                        && name.endsWith(".csv")
-                        && !name.contains("_BACKUP_")
-                        && !name.equals(TEMPLATE_FILE_NAME));
+            File[] vehicleFiles = dir.listFiles((d, name) ->
+                    name.startsWith("garuda_yana_")
+                            && name.endsWith(".csv")
+                            && !name.contains("_BACKUP_")
+                            && !name.equals(TEMPLATE_FILE_NAME));
 
-        if (vehicleFiles != null && vehicleFiles.length > 0) {
-            String preferredReg = readPrefAsString("selectedVehicleReg", "").trim().toUpperCase();
-            File chosen = vehicleFiles[0];
-            if (!preferredReg.isEmpty()) {
-                for (File vf : vehicleFiles) {
-                    if (vf.getName().equals("garuda_yana_" + preferredReg + ".csv")) {
-                        chosen = vf;
-                        break;
+            if (vehicleFiles != null && vehicleFiles.length > 0) {
+                String preferredReg = readPrefAsString("selectedVehicleReg", "").trim().toUpperCase();
+                File chosen = vehicleFiles[0];
+                if (!preferredReg.isEmpty()) {
+                    for (File vf : vehicleFiles) {
+                        if (vf.getName().equals("garuda_yana_" + preferredReg + ".csv")) {
+                            chosen = vf;
+                            break;
+                        }
                     }
                 }
+                parseAdvancedVehicleCSV(chosen);
+            } else if (templateFile.exists() && templateFile.length() > 0) {
+                parseAdvancedVehicleCSV(templateFile);
             }
-            parseAdvancedVehicleCSV(chosen);
-        } else {
-            parseAdvancedVehicleCSV(templateFile);
-            if (!regNumber.isEmpty()) {
-                saveAdvancedProfileToCSV();
-            }
-        }
+        } catch (Exception ignored) {}
+
         if (regNumber.isEmpty()) {
-            applyDemoProfileSetup();
+            setInMemoryDefaultProfile();
         }
     }
 
@@ -539,7 +539,7 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception ignored) {}
     }
 
-    private void applyDemoProfileSetup() {
+    private void setInMemoryDefaultProfile() {
         regNumber = "KL01DEMO01";
         vehicleName = "Demo WagonR CNG";
         vehicleType = "Cab-CNG";
@@ -577,20 +577,25 @@ public class MainActivity extends AppCompatActivity {
             speechPlatformsList.add("DIRECT");
         }
 
-        if (shiftPrefs != null) {
-            shiftPrefs.edit().putString("selectedVehicleReg", regNumber).apply();
+        if (shiftStartFuelValueRs <= 0) {
+            shiftStartFuelValueRs = fuelCapacity * fuelRatePerUnit;
         }
-        shiftStartFuelValueRs = fuelCapacity * fuelRatePerUnit;
+    }
 
-        File templateFile = new File(getStorageDirectory(), TEMPLATE_FILE_NAME);
-        if (!templateFile.exists() || templateFile.length() == 0) {
-            writeDefaultTemplateCsv(templateFile);
-        }
-        saveAdvancedProfileToCSV();
-        refreshQuickPlatformSpinner();
-        updateLiveDashboardMetrics();
-        persistShiftStateToStorage();
-        refreshSystemButtonUI();
+    private void applyDemoProfileSetup() {
+        try {
+            setInMemoryDefaultProfile();
+            if (shiftPrefs != null) {
+                shiftPrefs.edit().putString("selectedVehicleReg", regNumber).apply();
+            }
+            saveAdvancedProfileToCSV();
+            refreshQuickPlatformSpinner();
+            updateLiveDashboardMetrics();
+            persistShiftStateToStorage();
+            refreshSystemButtonUI();
+            logToTerminal("DEMO LOADED: KL01DEMO01");
+            Toast.makeText(this, "Demo Cab Profile Loaded!", Toast.LENGTH_SHORT).show();
+        } catch (Exception ignored) {}
     }
 
     private void showSubscriptionPlanDialog() {
@@ -800,63 +805,65 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateLiveDashboardMetrics() {
-        calculateMathematicalDailyStandingCost30Day();
+        try {
+            calculateMathematicalDailyStandingCost30Day();
 
-        double totalShiftKm = getTotalShiftKm();
-        double perKmFuelCost = getPerKmFuelCost();
-        double perKmTyreCost = getPerKmTyreCost();
-        double totalRunCostPerKm = perKmFuelCost + perKmTyreCost;
+            double totalShiftKm = getTotalShiftKm();
+            double perKmFuelCost = getPerKmFuelCost();
+            double perKmTyreCost = getPerKmTyreCost();
+            double totalRunCostPerKm = perKmFuelCost + perKmTyreCost;
 
-        double liveFuelExpense = totalShiftKm * perKmFuelCost;
-        double liveTyreWearExpense = totalShiftKm * perKmTyreCost;
+            double liveFuelExpense = totalShiftKm * perKmFuelCost;
+            double liveTyreWearExpense = totalShiftKm * perKmTyreCost;
 
-        double remainingFuelValueRs = shiftStartFuelValueRs - liveFuelExpense;
-        if (remainingFuelValueRs < 0) remainingFuelValueRs = 0;
+            double remainingFuelValueRs = shiftStartFuelValueRs - liveFuelExpense;
+            if (remainingFuelValueRs < 0) remainingFuelValueRs = 0;
 
-        minOperatingExpenditure = dailyStandingCost + liveFuelExpense + liveTyreWearExpense + dailySpotExpenses;
+            minOperatingExpenditure = dailyStandingCost + liveFuelExpense + liveTyreWearExpense + dailySpotExpenses;
 
-        double liveNetProfit = dailyEarningsSum - minOperatingExpenditure;
-        double targetGap = dailyNetIncomeGoal - liveNetProfit;
+            double liveNetProfit = dailyEarningsSum - minOperatingExpenditure;
+            double targetGap = dailyNetIncomeGoal - liveNetProfit;
 
-        double dailyGrossTarget = dailyStandingCost + dailyNetIncomeGoal + liveFuelExpense + liveTyreWearExpense + dailySpotExpenses;
-        double monthlyGrossTarget = (dailyStandingCost + dailyNetIncomeGoal) * 30.0;
-        double yearlyGrossTarget = monthlyGrossTarget * 12.0;
+            double dailyGrossTarget = dailyStandingCost + dailyNetIncomeGoal + liveFuelExpense + liveTyreWearExpense + dailySpotExpenses;
+            double monthlyGrossTarget = (dailyStandingCost + dailyNetIncomeGoal) * 30.0;
+            double yearlyGrossTarget = monthlyGrossTarget * 12.0;
 
-        if (tvDailyGrossTarget != null) tvDailyGrossTarget.setText("Daily Tgt: ₹" + String.format(Locale.US, "%.0f", dailyGrossTarget));
-        if (tvMonthlyGrossTarget != null) tvMonthlyGrossTarget.setText("Monthly: ₹" + String.format(Locale.US, "%.0f", monthlyGrossTarget));
-        if (tvYearlyGrossTarget != null) tvYearlyGrossTarget.setText("Yearly: ₹" + String.format(Locale.US, "%.0f", yearlyGrossTarget));
+            if (tvDailyGrossTarget != null) tvDailyGrossTarget.setText("Daily Tgt: ₹" + String.format(Locale.US, "%.0f", dailyGrossTarget));
+            if (tvMonthlyGrossTarget != null) tvMonthlyGrossTarget.setText("Monthly: ₹" + String.format(Locale.US, "%.0f", monthlyGrossTarget));
+            if (tvYearlyGrossTarget != null) tvYearlyGrossTarget.setText("Yearly: ₹" + String.format(Locale.US, "%.0f", yearlyGrossTarget));
 
-        currentRatePerKm = (totalShiftKm > 0.05) ? (dailyEarningsSum / totalShiftKm) : 0.0;
+            currentRatePerKm = (totalShiftKm > 0.05) ? (dailyEarningsSum / totalShiftKm) : 0.0;
 
-        if (tvLiveNetProfit != null) {
-            tvLiveNetProfit.setText("Net Profit: ₹" + String.format(Locale.US, "%.0f", liveNetProfit));
-            tvLiveNetProfit.setTextColor(liveNetProfit >= 0 ? 0xFF00E676 : 0xFFFF5252);
-        }
-
-        if (tvTargetGap != null) {
-            if (targetGap > 0) {
-                tvTargetGap.setText("Target Gap: ₹" + String.format(Locale.US, "%.0f", targetGap));
-                tvTargetGap.setTextColor(0xFFFFAB40);
-            } else {
-                tvTargetGap.setText("Target Hit: +₹" + String.format(Locale.US, "%.0f", Math.abs(targetGap)));
-                tvTargetGap.setTextColor(0xFF00E676);
+            if (tvLiveNetProfit != null) {
+                tvLiveNetProfit.setText("Net Profit: ₹" + String.format(Locale.US, "%.0f", liveNetProfit));
+                tvLiveNetProfit.setTextColor(liveNetProfit >= 0 ? 0xFF00E676 : 0xFFFF5252);
             }
-        }
 
-        if (tvMinReqAvg != null) tvMinReqAvg.setText("Min Op Exp: ₹" + String.format(Locale.US, "%.0f", minOperatingExpenditure));
-        if (tvCurrentAvg != null) tvCurrentAvg.setText("Curr Rate: ₹" + String.format(Locale.US, "%.1f/km", currentRatePerKm));
+            if (tvTargetGap != null) {
+                if (targetGap > 0) {
+                    tvTargetGap.setText("Target Gap: ₹" + String.format(Locale.US, "%.0f", targetGap));
+                    tvTargetGap.setTextColor(0xFFFFAB40);
+                } else {
+                    tvTargetGap.setText("Target Hit: +₹" + String.format(Locale.US, "%.0f", Math.abs(targetGap)));
+                    tvTargetGap.setTextColor(0xFF00E676);
+                }
+            }
 
-        if (tvOdoMeter != null) tvOdoMeter.setText("Odo: " + String.format(Locale.US, "%.0f", vehicleOdoBaseline + totalShiftKm));
-        if (tvTotalDist != null) tvTotalDist.setText("Shift Km: " + String.format(Locale.US, "%.1f", totalShiftKm));
-        if (tvDryRun != null) tvDryRun.setText("Dry Km: " + String.format(Locale.US, "%.1f", dryRunDistanceKm));
-        if (tvOrdersToday != null) tvOrdersToday.setText("Updates: " + dailyOrdersCount);
-        if (tvEarnings != null) tvEarnings.setText("Total Rev: ₹" + String.format(Locale.US, "%.0f", dailyEarningsSum));
-        if (tvAvgFuelCons != null) tvAvgFuelCons.setText("Run (F+T): ₹" + String.format(Locale.US, "%.1f/km", totalRunCostPerKm));
-        if (tvAvailFuel != null) tvAvailFuel.setText("Rem Fuel Val: ₹" + String.format(Locale.US, "%.0f", remainingFuelValueRs));
+            if (tvMinReqAvg != null) tvMinReqAvg.setText("Min Op Exp: ₹" + String.format(Locale.US, "%.0f", minOperatingExpenditure));
+            if (tvCurrentAvg != null) tvCurrentAvg.setText("Curr Rate: ₹" + String.format(Locale.US, "%.1f/km", currentRatePerKm));
 
-        updatePlatformFeasibilityBanner(totalShiftKm, totalRunCostPerKm);
-        updateFeasibilityRangeChart();
-        updateFlashFareInstantResult();
+            if (tvOdoMeter != null) tvOdoMeter.setText("Odo: " + String.format(Locale.US, "%.0f", vehicleOdoBaseline + totalShiftKm));
+            if (tvTotalDist != null) tvTotalDist.setText("Shift Km: " + String.format(Locale.US, "%.1f", totalShiftKm));
+            if (tvDryRun != null) tvDryRun.setText("Dry Km: " + String.format(Locale.US, "%.1f", dryRunDistanceKm));
+            if (tvOrdersToday != null) tvOrdersToday.setText("Updates: " + dailyOrdersCount);
+            if (tvEarnings != null) tvEarnings.setText("Total Rev: ₹" + String.format(Locale.US, "%.0f", dailyEarningsSum));
+            if (tvAvgFuelCons != null) tvAvgFuelCons.setText("Run (F+T): ₹" + String.format(Locale.US, "%.1f/km", totalRunCostPerKm));
+            if (tvAvailFuel != null) tvAvailFuel.setText("Rem Fuel Val: ₹" + String.format(Locale.US, "%.0f", remainingFuelValueRs));
+
+            updatePlatformFeasibilityBanner(totalShiftKm, totalRunCostPerKm);
+            updateFeasibilityRangeChart();
+            updateFlashFareInstantResult();
+        } catch (Exception ignored) {}
     }
 
     private void updatePlatformFeasibilityBanner(double totalShiftKm, double totalRunCostPerKm) {
@@ -961,7 +968,6 @@ public class MainActivity extends AppCompatActivity {
         addConfigButton(mainLayout, "6. Use Demo Vehicle Setup", 0xFF283593, v -> {
             dismissActiveDialogSafely();
             applyDemoProfileSetup();
-            Toast.makeText(this, "Demo Loaded: KL01DEMO01", Toast.LENGTH_SHORT).show();
         });
         addConfigButton(mainLayout, "7. Full Reset (Delete All CSV & Shift Data)", 0xFFB71C1C, v -> confirmAndExecuteFullReset());
         addConfigButton(mainLayout, "8. View Terms & Disclaimer", 0xFF424242, v -> {
@@ -1044,7 +1050,7 @@ public class MainActivity extends AppCompatActivity {
                 while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
             }
             logToTerminal("BACKUP: " + backupFile.getName());
-            Toast.makeText(this, "Backup created: " + backupFile.getName(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Backup created: " + backupFile.getName(), Toast.LENGTH_LONG).show();
         } catch (Exception e) {
             Toast.makeText(this, "Backup failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
@@ -1477,67 +1483,75 @@ public class MainActivity extends AppCompatActivity {
 
     private void persistShiftStateToStorage() {
         if (shiftPrefs == null) return;
-        shiftPrefs.edit()
-                .putBoolean("isAppStarted", isAppStarted)
-                .putBoolean("isTripStarted", isTripStarted)
-                .putString("accumulatedDistanceKm", String.valueOf(accumulatedDistanceKm))
-                .putString("dryRunDistanceKm", String.valueOf(dryRunDistanceKm))
-                .putString("dailyEarningsSum", String.valueOf(dailyEarningsSum))
-                .putInt("dailyOrdersCount", dailyOrdersCount)
-                .putString("dailySpotExpenses", String.valueOf(dailySpotExpenses))
-                .putString("dailyNetIncomeGoal", String.valueOf(dailyNetIncomeGoal))
-                .putString("shiftStartFuelValueRs", String.valueOf(shiftStartFuelValueRs))
-                .putString("currentFuelPercent", String.valueOf(currentFuelPercent))
-                .putString("vehicleOdoBaseline", String.valueOf(vehicleOdoBaseline))
-                .putString("fuelResetOdoMarker", String.valueOf(fuelResetOdoMarker))
-                .putString("totalWaitingTimeMs", String.valueOf(totalWaitingTimeMs))
-                .putString("tripStopTimestamp", String.valueOf(tripStopTimestamp))
-                .putString("terminalLog", tvTerminalLog != null ? tvTerminalLog.getText().toString() : "")
-                .apply();
+        try {
+            shiftPrefs.edit()
+                    .putString("isAppStarted", String.valueOf(isAppStarted))
+                    .putString("isTripStarted", String.valueOf(isTripStarted))
+                    .putString("accumulatedDistanceKm", String.valueOf(accumulatedDistanceKm))
+                    .putString("dryRunDistanceKm", String.valueOf(dryRunDistanceKm))
+                    .putString("dailyEarningsSum", String.valueOf(dailyEarningsSum))
+                    .putString("dailyOrdersCount", String.valueOf(dailyOrdersCount))
+                    .putString("dailySpotExpenses", String.valueOf(dailySpotExpenses))
+                    .putString("dailyNetIncomeGoal", String.valueOf(dailyNetIncomeGoal))
+                    .putString("shiftStartFuelValueRs", String.valueOf(shiftStartFuelValueRs))
+                    .putString("currentFuelPercent", String.valueOf(currentFuelPercent))
+                    .putString("vehicleOdoBaseline", String.valueOf(vehicleOdoBaseline))
+                    .putString("fuelResetOdoMarker", String.valueOf(fuelResetOdoMarker))
+                    .putString("totalWaitingTimeMs", String.valueOf(totalWaitingTimeMs))
+                    .putString("tripStopTimestamp", String.valueOf(tripStopTimestamp))
+                    .putString("terminalLog", tvTerminalLog != null ? tvTerminalLog.getText().toString() : "")
+                    .apply();
+        } catch (Exception ignored) {}
     }
 
     private void restoreShiftStateFromStorage() {
         if (shiftPrefs == null) return;
-        Object appStartedObj = shiftPrefs.getAll().get("isAppStarted");
-        boolean savedAppStarted = (appStartedObj instanceof Boolean) && (Boolean) appStartedObj;
-        if (!savedAppStarted) return;
+        try {
+            String appStartedStr = readPrefAsString("isAppStarted", "false").trim().toLowerCase(Locale.US);
+            boolean savedAppStarted = "true".equals(appStartedStr);
+            if (!savedAppStarted) return;
 
-        isAppStarted = true;
-        Object tripStartedObj = shiftPrefs.getAll().get("isTripStarted");
-        isTripStarted = (tripStartedObj instanceof Boolean) && (Boolean) tripStartedObj;
+            isAppStarted = true;
+            String tripStartedStr = readPrefAsString("isTripStarted", "false").trim().toLowerCase(Locale.US);
+            isTripStarted = "true".equals(tripStartedStr);
 
-        accumulatedDistanceKm = parseDoubleSafe(readPrefAsString("accumulatedDistanceKm", "0.0"), 0.0);
-        dryRunDistanceKm = parseDoubleSafe(readPrefAsString("dryRunDistanceKm", "0.0"), 0.0);
-        dailyEarningsSum = parseDoubleSafe(readPrefAsString("dailyEarningsSum", "0.0"), 0.0);
-        dailyOrdersCount = parseIntSafe(readPrefAsString("dailyOrdersCount", "0"), 0);
-        dailySpotExpenses = parseDoubleSafe(readPrefAsString("dailySpotExpenses", "0.0"), 0.0);
-        dailyNetIncomeGoal = parseDoubleSafe(readPrefAsString("dailyNetIncomeGoal", "2000.0"), 2000.0);
-        shiftStartFuelValueRs = parseDoubleSafe(readPrefAsString("shiftStartFuelValueRs", "0.0"), 0.0);
-        currentFuelPercent = parseDoubleSafe(readPrefAsString("currentFuelPercent", "100.0"), 100.0);
-        vehicleOdoBaseline = parseDoubleSafe(readPrefAsString("vehicleOdoBaseline", String.valueOf(vehicleOdoBaseline)), vehicleOdoBaseline);
-        fuelResetOdoMarker = parseDoubleSafe(readPrefAsString("fuelResetOdoMarker", String.valueOf(fuelResetOdoMarker)), fuelResetOdoMarker);
-        totalWaitingTimeMs = parseLongSafe(readPrefAsString("totalWaitingTimeMs", "0"), 0L);
-        tripStopTimestamp = parseLongSafe(readPrefAsString("tripStopTimestamp", "0"), 0L);
+            accumulatedDistanceKm = parseDoubleSafe(readPrefAsString("accumulatedDistanceKm", "0.0"), 0.0);
+            dryRunDistanceKm = parseDoubleSafe(readPrefAsString("dryRunDistanceKm", "0.0"), 0.0);
+            dailyEarningsSum = parseDoubleSafe(readPrefAsString("dailyEarningsSum", "0.0"), 0.0);
+            dailyOrdersCount = parseIntSafe(readPrefAsString("dailyOrdersCount", "0"), 0);
+            dailySpotExpenses = parseDoubleSafe(readPrefAsString("dailySpotExpenses", "0.0"), 0.0);
+            dailyNetIncomeGoal = parseDoubleSafe(readPrefAsString("dailyNetIncomeGoal", "2000.0"), 2000.0);
+            shiftStartFuelValueRs = parseDoubleSafe(readPrefAsString("shiftStartFuelValueRs", "0.0"), 0.0);
+            currentFuelPercent = parseDoubleSafe(readPrefAsString("currentFuelPercent", "100.0"), 100.0);
+            vehicleOdoBaseline = parseDoubleSafe(readPrefAsString("vehicleOdoBaseline", String.valueOf(vehicleOdoBaseline)), vehicleOdoBaseline);
+            fuelResetOdoMarker = parseDoubleSafe(readPrefAsString("fuelResetOdoMarker", String.valueOf(fuelResetOdoMarker)), fuelResetOdoMarker);
+            totalWaitingTimeMs = parseLongSafe(readPrefAsString("totalWaitingTimeMs", "0"), 0L);
+            tripStopTimestamp = parseLongSafe(readPrefAsString("tripStopTimestamp", "0"), 0L);
 
-        String savedLog = readPrefAsString("terminalLog", "");
-        if (!savedLog.isEmpty() && tvTerminalLog != null) {
-            tvTerminalLog.setText(savedLog);
+            String savedLog = readPrefAsString("terminalLog", "");
+            if (!savedLog.isEmpty() && tvTerminalLog != null) {
+                tvTerminalLog.setText(savedLog);
+            }
+        } catch (Exception ignored) {
+            clearPersistedShiftState();
         }
     }
 
     private void clearPersistedShiftState() {
         if (shiftPrefs == null) return;
-        shiftPrefs.edit()
-                .putBoolean("isAppStarted", false)
-                .putBoolean("isTripStarted", false)
-                .putString("accumulatedDistanceKm", "0.0")
-                .putString("dryRunDistanceKm", "0.0")
-                .putString("dailyEarningsSum", "0.0")
-                .putInt("dailyOrdersCount", 0)
-                .putString("dailySpotExpenses", "0.0")
-                .putString("totalWaitingTimeMs", "0")
-                .putString("tripStopTimestamp", "0")
-                .apply();
+        try {
+            shiftPrefs.edit()
+                    .putString("isAppStarted", "false")
+                    .putString("isTripStarted", "false")
+                    .putString("accumulatedDistanceKm", "0.0")
+                    .putString("dryRunDistanceKm", "0.0")
+                    .putString("dailyEarningsSum", "0.0")
+                    .putString("dailyOrdersCount", "0")
+                    .putString("dailySpotExpenses", "0.0")
+                    .putString("totalWaitingTimeMs", "0")
+                    .putString("tripStopTimestamp", "0")
+                    .apply();
+        } catch (Exception ignored) {}
     }
 
     private String readPrefAsString(String key, String fallback) {
@@ -1642,9 +1656,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void stopIdlePassiveTrackingEngine() {
-        if (locationManager != null) {
-            locationManager.removeUpdates(passiveIdleListener);
-        }
+        try {
+            if (locationManager != null) {
+                locationManager.removeUpdates(passiveIdleListener);
+            }
+        } catch (Exception ignored) {}
     }
 
     private final LocationListener passiveIdleListener = new LocationListener() {
@@ -1654,48 +1670,50 @@ public class MainActivity extends AppCompatActivity {
     };
 
     private void processLiveLocationTelemetry(Location location, boolean isInsideActiveTrip) {
-        if (!isAppStarted || location == null) return;
-        if (!isInsideActiveTrip && isTripStarted) return;
+        try {
+            if (!isAppStarted || location == null) return;
+            if (!isInsideActiveTrip && isTripStarted) return;
 
-        double lat = location.getLatitude();
-        double lon = location.getLongitude();
-        String locStamp = String.format(Locale.US, "%.4f,%.4f", lat, lon);
+            double lat = location.getLatitude();
+            double lon = location.getLongitude();
+            String locStamp = String.format(Locale.US, "%.4f,%.4f", lat, lon);
 
-        if (previousLocation != null) {
-            double deltaMeters = location.distanceTo(previousLocation);
-            double deltaKm = deltaMeters / 1000.0;
-            if (deltaMeters >= 5.0 && deltaKm <= 25.0) {
-                if (isInsideActiveTrip) accumulatedDistanceKm += deltaKm;
-                else dryRunDistanceKm += deltaKm;
+            if (previousLocation != null) {
+                double deltaMeters = location.distanceTo(previousLocation);
+                double deltaKm = deltaMeters / 1000.0;
+                if (deltaMeters >= 5.0 && deltaKm <= 25.0) {
+                    if (isInsideActiveTrip) accumulatedDistanceKm += deltaKm;
+                    else dryRunDistanceKm += deltaKm;
+                    previousLocation = location;
+                    updateLiveDashboardMetrics();
+                    persistShiftStateToStorage();
+                    logToTerminal((isInsideActiveTrip ? "TR:" : "DR:") + locStamp + " +" + String.format(Locale.US, "%.2f", deltaKm));
+                }
+            } else {
                 previousLocation = location;
-                updateLiveDashboardMetrics();
-                persistShiftStateToStorage();
-                logToTerminal((isInsideActiveTrip ? "TR:" : "DR:") + locStamp + " +" + String.format(Locale.US, "%.2f", deltaKm));
+                logToTerminal("GPS:" + locStamp);
             }
-        } else {
-            previousLocation = location;
-            logToTerminal("GPS:" + locStamp);
-        }
 
-        if (lastIdleRecordedLocation == null) {
-            lastIdleRecordedLocation = location;
-            lastMoveTimestamp = System.currentTimeMillis();
-        } else {
-            if (location.distanceTo(lastIdleRecordedLocation) > 12) {
+            if (lastIdleRecordedLocation == null) {
                 lastIdleRecordedLocation = location;
                 lastMoveTimestamp = System.currentTimeMillis();
             } else {
-                long idleDelta = System.currentTimeMillis() - lastMoveTimestamp;
-                if (idleDelta >= 60000) {
-                    totalWaitingTimeMs += idleDelta;
-                    updateWaitingTimeDisplayField();
-                    persistShiftStateToStorage();
-                    recordIdleLocationToCSV(lat, lon, isInsideActiveTrip ? "DURING_TRIP_IDLE" : "WITHOUT_TRIP_IDLE");
-                    logToTerminal("IDL:" + locStamp);
+                if (location.distanceTo(lastIdleRecordedLocation) > 12) {
+                    lastIdleRecordedLocation = location;
                     lastMoveTimestamp = System.currentTimeMillis();
+                } else {
+                    long idleDelta = System.currentTimeMillis() - lastMoveTimestamp;
+                    if (idleDelta >= 60000) {
+                        totalWaitingTimeMs += idleDelta;
+                        updateWaitingTimeDisplayField();
+                        persistShiftStateToStorage();
+                        recordIdleLocationToCSV(lat, lon, isInsideActiveTrip ? "DURING_TRIP_IDLE" : "WITHOUT_TRIP_IDLE");
+                        logToTerminal("IDL:" + locStamp);
+                        lastMoveTimestamp = System.currentTimeMillis();
+                    }
                 }
             }
-        }
+        } catch (Exception ignored) {}
     }
 
     private void updateWaitingTimeDisplayField() {
@@ -1705,39 +1723,43 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshSystemButtonUI() {
-        if (btnAppToggle != null && btnTripToggle != null) {
-            if (isAppStarted) {
-                btnAppToggle.setText("App Stop");
-                btnAppToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFCC0000));
-                btnTripToggle.setEnabled(true);
-                btnTripToggle.setAlpha(1.0f);
-            } else {
-                btnAppToggle.setText("App Start");
-                btnAppToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF008800));
-                btnTripToggle.setEnabled(false);
-                btnTripToggle.setAlpha(0.4f);
+        try {
+            if (btnAppToggle != null && btnTripToggle != null) {
+                if (isAppStarted) {
+                    btnAppToggle.setText("App Stop");
+                    btnAppToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFCC0000));
+                    btnTripToggle.setEnabled(true);
+                    btnTripToggle.setAlpha(1.0f);
+                } else {
+                    btnAppToggle.setText("App Start");
+                    btnAppToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF008800));
+                    btnTripToggle.setEnabled(false);
+                    btnTripToggle.setAlpha(0.4f);
+                }
+                if (isTripStarted) {
+                    btnTripToggle.setText("TRIP STOP");
+                    btnTripToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFFF3300));
+                } else {
+                    btnTripToggle.setText("TRIP START");
+                    btnTripToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFFF8C00));
+                }
             }
-            if (isTripStarted) {
-                btnTripToggle.setText("TRIP STOP");
-                btnTripToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFFF3300));
-            } else {
-                btnTripToggle.setText("TRIP START");
-                btnTripToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFFF8C00));
+            if (tvVehicleStatus != null && !regNumber.isEmpty()) {
+                tvVehicleStatus.setText(vehicleName + " [" + regNumber + "] | Fix: ₹" + String.format(Locale.US, "%.0f/d", dailyStandingCost));
+                tvVehicleStatus.setTextColor(isAppStarted ? 0xFF00E676 : 0xFFFF5252);
             }
-        }
-        if (tvVehicleStatus != null && !regNumber.isEmpty()) {
-            tvVehicleStatus.setText(vehicleName + " [" + regNumber + "] | Fix: ₹" + String.format(Locale.US, "%.0f/d", dailyStandingCost));
-            tvVehicleStatus.setTextColor(isAppStarted ? 0xFF00E676 : 0xFFFF5252);
-        }
+        } catch (Exception ignored) {}
     }
 
     private void logToTerminal(String message) {
-        if (tvTerminalLog == null) return;
-        String timestamp = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
-        tvTerminalLog.append(timestamp + " " + message + "\n");
-        if (svTerminal != null) {
-            svTerminal.post(() -> svTerminal.fullScroll(View.FOCUS_DOWN));
-        }
+        try {
+            if (tvTerminalLog == null) return;
+            String timestamp = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
+            tvTerminalLog.append(timestamp + " " + message + "\n");
+            if (svTerminal != null) {
+                svTerminal.post(() -> svTerminal.fullScroll(View.FOCUS_DOWN));
+            }
+        } catch (Exception ignored) {}
     }
 
     private EditText createDialogEditText(Context ctx, String labelText, String text, LinearLayout container) {
@@ -1772,11 +1794,15 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         dismissActiveDialogSafely();
-        if (locationManager != null) {
-            if (locationListener != null) locationManager.removeUpdates(locationListener);
-            locationManager.removeUpdates(passiveIdleListener);
-        }
-        if (speechRecognizer != null) speechRecognizer.destroy();
+        try {
+            if (locationManager != null) {
+                if (locationListener != null) locationManager.removeUpdates(locationListener);
+                locationManager.removeUpdates(passiveIdleListener);
+            }
+        } catch (Exception ignored) {}
+        try {
+            if (speechRecognizer != null) speechRecognizer.destroy();
+        } catch (Exception ignored) {}
         super.onDestroy();
     }
 }
