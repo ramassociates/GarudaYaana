@@ -40,8 +40,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -66,7 +64,6 @@ public class MainActivity extends AppCompatActivity {
             "app crashes, data loss, or mobile hardware/GPS issues. The driver/user bears sole responsibility for " +
             "safe driving, traffic compliance, and business decisions.";
 
-    // UI Elements Mapping
     private TextView tvVehicleStatus, tvDaysLeft, tvMinReqAvg, tvCurrentAvg, tvOdoMeter, tvTotalDist, tvOrdersToday, tvWaitTime, tvDryRun, tvAvgFuelCons, tvAvailFuel, tvEarnings, tvTerminalLog, tvTrainData;
     private TextView tvLiveNetProfit, tvTargetGap, tvDailyGrossTarget, tvMonthlyGrossTarget, tvYearlyGrossTarget;
     private TextView tvPlatformFeasibility, tvFlashOfferGuide, tvFlashFareResult, tvRange1to3, tvRange4to6, tvRange7to10;
@@ -75,7 +72,6 @@ public class MainActivity extends AppCompatActivity {
     private Button btnAppToggle, btnTripToggle, btnUpdateRevenue;
     private ScrollView svTerminal;
 
-    // Core Operational Engines
     private LocationManager locationManager;
     private LocationListener locationListener;
     private Location previousLocation = null;
@@ -83,7 +79,6 @@ public class MainActivity extends AppCompatActivity {
     private SharedPreferences shiftPrefs;
     private AlertDialog activeDialog = null;
 
-    // Fluid Mathematical Trackers
     private boolean isAppStarted = false;
     private boolean isTripStarted = false;
     private double accumulatedDistanceKm = 0.0;
@@ -92,20 +87,17 @@ public class MainActivity extends AppCompatActivity {
     private double dryRunDistanceKm = 0.0;
     private double dailySpotExpenses = 0.0;
 
-    // Real-Time Profit & Fuel Value Engine Variables (30-Day Split)
     private double dailyNetIncomeGoal = 2000.0;
     private double shiftStartFuelValueRs = 0.0;
     private double currentFuelPercent = 100.0;
     private double minOperatingExpenditure = 0.0;
     private double currentRatePerKm = 0.0;
 
-    // Time Interlock Parameters
     private long tripStopTimestamp = 0;
     private long totalWaitingTimeMs = 0;
     private long lastMoveTimestamp = 0;
     private Location lastIdleRecordedLocation = null;
 
-    // Vehicle + Tyre Cost Core Memory Variables
     private String regNumber = "";
     private String vehicleName = "";
     private String vehicleType = "Cab-CNG";
@@ -127,12 +119,10 @@ public class MainActivity extends AppCompatActivity {
     private double maxExpectedRangeKm = 210.0;
     private double fuelResetOdoMarker = 0.0;
 
-    // Tyre Cost Configuration (Default: 5 tyres incl. Stepney, 30,000 km life)
     private int tyreCount = 5;
     private double tyreUnitPrice = 5500.0;
     private double tyreReplacementKm = 30000.0;
 
-    // Dynamic Nodes & Platform Trackers
     private final ArrayList<String> speechPlatformsList = new ArrayList<>();
     private final ArrayList<CustomExpense> expenseFleetList = new ArrayList<>();
     private final HashMap<String, Double> platformRevenueMap = new HashMap<>();
@@ -149,9 +139,7 @@ public class MainActivity extends AppCompatActivity {
                     String csvData = response.body().string();
                     runOnUiThread(() -> processCsvData(csvData));
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            } catch (IOException ignored) {}
         });
     }
 
@@ -184,16 +172,73 @@ public class MainActivity extends AppCompatActivity {
         activeDialog = null;
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        try {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } catch (Exception ignored) {}
 
-        shiftPrefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        try {
+            shiftPrefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        } catch (Exception ignored) {}
 
-        // Map Views safely
+        mapViewsSafely();
+
+        try {
+            locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        } catch (Exception ignored) {}
+
+        try {
+            initializeSpeechRecognizerEngine();
+        } catch (Exception ignored) {}
+
+        try {
+            calculateRemainingWorkingDaysSafe();
+        } catch (Exception ignored) {}
+
+        try {
+            restoreShiftStateFromStorage();
+        } catch (Exception ignored) {}
+
+        try {
+            refreshQuickPlatformSpinner();
+        } catch (Exception ignored) {}
+
+        try {
+            ensureTemplateAndLoadVehicleProfile();
+        } catch (Exception ignored) {
+            applyDemoProfileSetup();
+        }
+
+        try {
+            if (isAppStarted) {
+                startIdlePassiveTrackingEngine();
+                if (isTripStarted) {
+                    resumeActiveTripListener();
+                }
+            }
+            updateWaitingTimeDisplayField();
+            updateLiveDashboardMetrics();
+            refreshSystemButtonUI();
+        } catch (Exception ignored) {}
+
+        attachClickListenersSafely();
+
+        View rootView = findViewById(android.R.id.content);
+        if (rootView != null) {
+            rootView.post(() -> {
+                if (!isFinishing() && !isDestroyed()) {
+                    try {
+                        triggerDynamicSystemPermissionsScan();
+                    } catch (Exception ignored) {}
+                }
+            });
+        }
+    }
+
+    private void mapViewsSafely() {
         tvVehicleStatus = findViewById(R.id.tvVehicleStatus);
         tvDaysLeft = findViewById(R.id.tvDaysLeft);
         tvLiveNetProfit = findViewById(R.id.tvLiveNetProfit);
@@ -228,40 +273,16 @@ public class MainActivity extends AppCompatActivity {
         btnUpdateRevenue = findViewById(R.id.btnUpdateRevenue);
 
         btnAppToggle = findViewById(R.id.btnAppToggle);
-        Button btnExitApp = findViewById(R.id.btnExitApp);
         btnTripToggle = findViewById(R.id.btnTripToggle);
+    }
+
+    private void attachClickListenersSafely() {
+        Button btnExitApp = findViewById(R.id.btnExitApp);
         Button btnVehicleConfig = findViewById(R.id.btnVehicleConfig);
         Button btnSubPlan = findViewById(R.id.btnSubPlan);
         Button btnShareCSV = findViewById(R.id.btnShareCSV);
         Button btnTips = findViewById(R.id.btnTips);
         Button btnExpense = findViewById(R.id.btnExpense);
-
-        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        initializeSpeechRecognizerEngine();
-
-        calculateRemainingWorkingDays();
-        restoreShiftStateFromStorage();
-        refreshQuickPlatformSpinner();
-        ensureTemplateAndLoadVehicleProfile();
-
-        if (isAppStarted) {
-            startIdlePassiveTrackingEngine();
-            if (isTripStarted) {
-                resumeActiveTripListener();
-            }
-        }
-        updateWaitingTimeDisplayField();
-        updateLiveDashboardMetrics();
-        refreshSystemButtonUI();
-
-        View rootView = findViewById(android.R.id.content);
-        if (rootView != null) {
-            rootView.post(() -> {
-                if (!isFinishing() && !isDestroyed()) {
-                    triggerDynamicSystemPermissionsScan();
-                }
-            });
-        }
 
         if (etFlashFareCheck != null) {
             etFlashFareCheck.addTextChangedListener(new TextWatcher() {
@@ -273,22 +294,16 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // 1) APP ENGINE SWITCH CONTROL
         if (btnAppToggle != null) {
             btnAppToggle.setOnClickListener(v -> {
                 try {
                     if (regNumber.isEmpty()) {
-                        ensureTemplateAndLoadVehicleProfile();
-                        if (regNumber.isEmpty()) {
-                            applyDemoProfileSetup();
-                        }
+                        applyDemoProfileSetup();
                     }
                     if (!isAppStarted) {
                         showShiftStartDialog();
                     } else {
-                        if (isTripStarted) {
-                            stopGPSTrackingEngine();
-                        }
+                        if (isTripStarted) stopGPSTrackingEngine();
                         double shiftTotalKm = getTotalShiftKm();
                         appendTripRecordToCSVFile("DAY_SHIFT_END", dailyEarningsSum);
                         vehicleOdoBaseline += shiftTotalKm;
@@ -316,12 +331,11 @@ public class MainActivity extends AppCompatActivity {
                         logToTerminal("APP STOP: Day closed & saved.");
                     }
                 } catch (Exception e) {
-                    Toast.makeText(this, "Toggle error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 }
             });
         }
 
-        // 2) PLATFORM-SPECIFIC REVENUE UPDATE
         if (btnUpdateRevenue != null) {
             btnUpdateRevenue.setOnClickListener(v -> {
                 try {
@@ -335,11 +349,8 @@ public class MainActivity extends AppCompatActivity {
                             ? spnQuickPlatform.getSelectedItem().toString() : "DIRECT";
 
                     platformRevenueMap.put(selectedPlatform, platformAmt);
-
                     double sum = 0.0;
-                    for (double val : platformRevenueMap.values()) {
-                        sum += val;
-                    }
+                    for (double val : platformRevenueMap.values()) sum += val;
                     dailyEarningsSum = sum;
                     dailyOrdersCount++;
                     if (etTotalRevenueInput != null) etTotalRevenueInput.setText("");
@@ -352,15 +363,13 @@ public class MainActivity extends AppCompatActivity {
                     updateLiveDashboardMetrics();
                     persistShiftStateToStorage();
                     appendTripRecordToCSVFile("REV_" + selectedPlatform, platformAmt);
-                    logToTerminal(selectedPlatform + " Rev: ₹" + String.format(Locale.US, "%.0f", platformAmt)
-                            + " | Tot: ₹" + String.format(Locale.US, "%.0f", dailyEarningsSum));
+                    logToTerminal(selectedPlatform + " Rev: ₹" + String.format(Locale.US, "%.0f", platformAmt));
                 } catch (Exception e) {
                     Toast.makeText(this, "Invalid revenue amount.", Toast.LENGTH_SHORT).show();
                 }
             });
         }
 
-        // 3) EXIT APPLICATION COMMAND
         if (btnExitApp != null) {
             btnExitApp.setOnClickListener(v -> {
                 dismissActiveDialogSafely();
@@ -370,27 +379,22 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // 4) TRIP SATELLITE CONTROL
         if (btnTripToggle != null) {
             btnTripToggle.setOnClickListener(v -> {
                 if (!isAppStarted) {
                     Toast.makeText(this, "Press App Start first!", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                if (!isTripStarted) {
-                    startTripSequence();
-                } else {
-                    stopGPSTrackingEngine();
-                }
+                if (!isTripStarted) startTripSequence();
+                else stopGPSTrackingEngine();
             });
         }
 
-        // 5) SUBSCRIPTION PLAN ACTIVATION SHORTCUT
-        if (btnSubPlan != null) {
-            btnSubPlan.setOnClickListener(v -> showSubscriptionPlanDialog());
-        }
+        if (btnSubPlan != null) btnSubPlan.setOnClickListener(v -> showSubscriptionPlanDialog());
+        if (btnExpense != null) btnExpense.setOnClickListener(v -> showSpotOrHiddenExpenseDialog());
+        if (btnVehicleConfig != null) btnVehicleConfig.setOnClickListener(v -> showCentralConfigLandingMenu());
+        if (btnShareCSV != null) btnShareCSV.setOnClickListener(v -> dispatchShareMasterSheet());
 
-        // 6) QUICK LIVE SPOT INCOME (TIPS)
         if (btnTips != null) {
             btnTips.setOnClickListener(v -> {
                 dismissActiveDialogSafely();
@@ -419,44 +423,27 @@ public class MainActivity extends AppCompatActivity {
                 activeDialog.show();
             });
         }
-
-        // 7) SPOT / HIDDEN PLATFORM EXPENSES SHORTCUT
-        if (btnExpense != null) {
-            btnExpense.setOnClickListener(v -> showSpotOrHiddenExpenseDialog());
-        }
-
-        // 8) CENTRAL CONFIG HUB & SHARE
-        if (btnVehicleConfig != null) {
-            btnVehicleConfig.setOnClickListener(v -> showCentralConfigLandingMenu());
-        }
-        if (btnShareCSV != null) {
-            btnShareCSV.setOnClickListener(v -> dispatchShareMasterSheet());
-        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        saveAdvancedProfileToCSV();
-        persistShiftStateToStorage();
+        try {
+            saveAdvancedProfileToCSV();
+            persistShiftStateToStorage();
+        } catch (Exception ignored) {}
     }
 
-    @Override
-    protected void onSaveInstanceState(@NonNull Bundle outState) {
-        super.onSaveInstanceState(outState);
-        saveAdvancedProfileToCSV();
-        persistShiftStateToStorage();
-    }
-
-    // ==========================================
-    // ALL FILES ACCESS & RUNTIME PERMISSIONS
-    // ==========================================
     private boolean hasFullFileAccessPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            return Environment.isExternalStorageManager();
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                return Environment.isExternalStorageManager();
+            }
+            return ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    == PackageManager.PERMISSION_GRANTED;
+        } catch (Exception e) {
+            return false;
         }
-        return ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                == PackageManager.PERMISSION_GRANTED;
     }
 
     private void promptForAllFilesAccessPermission() {
@@ -486,62 +473,60 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void triggerDynamicSystemPermissionsScan() {
-        ArrayList<String> perms = new ArrayList<>();
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            perms.add(Manifest.permission.ACCESS_FINE_LOCATION);
-        }
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            perms.add(Manifest.permission.RECORD_AUDIO);
-        }
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                perms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        try {
+            ArrayList<String> perms = new ArrayList<>();
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                perms.add(Manifest.permission.ACCESS_FINE_LOCATION);
             }
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                perms.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                perms.add(Manifest.permission.RECORD_AUDIO);
             }
-        }
-        if (!perms.isEmpty()) {
-            ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), PERMISSION_MASTER_CODE);
-        }
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                    perms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+                }
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                    perms.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+                }
+            }
+            if (!perms.isEmpty()) {
+                ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), PERMISSION_MASTER_CODE);
+            }
+        } catch (Exception ignored) {}
     }
 
-    // ==========================================
-    // TEMPLATE CSV & VEHICLE NUMBER PROFILE LOADER
-    // ==========================================
     private void ensureTemplateAndLoadVehicleProfile() {
-        try {
-            File dir = getStorageDirectory();
-            File templateFile = new File(dir, TEMPLATE_FILE_NAME);
-            if (!templateFile.exists() || templateFile.length() == 0) {
-                writeDefaultTemplateCsv(templateFile);
-            }
+        File dir = getStorageDirectory();
+        File templateFile = new File(dir, TEMPLATE_FILE_NAME);
+        if (!templateFile.exists() || templateFile.length() == 0) {
+            writeDefaultTemplateCsv(templateFile);
+        }
 
-            File[] vehicleFiles = dir.listFiles((d, name) ->
-                    name.startsWith("garuda_yana_")
-                            && name.endsWith(".csv")
-                            && !name.contains("_BACKUP_")
-                            && !name.equals(TEMPLATE_FILE_NAME));
+        File[] vehicleFiles = dir.listFiles((d, name) ->
+                name.startsWith("garuda_yana_")
+                        && name.endsWith(".csv")
+                        && !name.contains("_BACKUP_")
+                        && !name.equals(TEMPLATE_FILE_NAME));
 
-            if (vehicleFiles != null && vehicleFiles.length > 0) {
-                String preferredReg = readPrefAsString("selectedVehicleReg", "").trim().toUpperCase();
-                File chosen = vehicleFiles[0];
-                if (!preferredReg.isEmpty()) {
-                    for (File vf : vehicleFiles) {
-                        if (vf.getName().equals("garuda_yana_" + preferredReg + ".csv")) {
-                            chosen = vf;
-                            break;
-                        }
+        if (vehicleFiles != null && vehicleFiles.length > 0) {
+            String preferredReg = readPrefAsString("selectedVehicleReg", "").trim().toUpperCase();
+            File chosen = vehicleFiles[0];
+            if (!preferredReg.isEmpty()) {
+                for (File vf : vehicleFiles) {
+                    if (vf.getName().equals("garuda_yana_" + preferredReg + ".csv")) {
+                        chosen = vf;
+                        break;
                     }
                 }
-                parseAdvancedVehicleCSV(chosen);
-            } else {
-                parseAdvancedVehicleCSV(templateFile);
-                if (!regNumber.isEmpty()) {
-                    saveAdvancedProfileToCSV();
-                }
             }
-        } catch (Exception e) {
+            parseAdvancedVehicleCSV(chosen);
+        } else {
+            parseAdvancedVehicleCSV(templateFile);
+            if (!regNumber.isEmpty()) {
+                saveAdvancedProfileToCSV();
+            }
+        }
+        if (regNumber.isEmpty()) {
             applyDemoProfileSetup();
         }
     }
@@ -606,13 +591,8 @@ public class MainActivity extends AppCompatActivity {
         updateLiveDashboardMetrics();
         persistShiftStateToStorage();
         refreshSystemButtonUI();
-        logToTerminal("DEMO LOADED: KL01DEMO01");
-        Toast.makeText(this, "Demo Cab Profile Loaded!", Toast.LENGTH_SHORT).show();
     }
 
-    // ==========================================
-    // SUBSCRIPTION PLAN & HIDDEN EXPENSE DIALOGS
-    // ==========================================
     private void showSubscriptionPlanDialog() {
         dismissActiveDialogSafely();
         AlertDialog.Builder b = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
@@ -628,36 +608,13 @@ public class MainActivity extends AppCompatActivity {
         l.addView(tvP);
 
         final Spinner spnPlat = new Spinner(this);
-        ArrayAdapter<String> adp = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, speechPlatformsList);
-        spnPlat.setAdapter(adp);
+        spnPlat.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, speechPlatformsList));
         l.addView(spnPlat);
 
-        TextView tvA = new TextView(this);
-        tvA.setText("Subscription Plan Fee (₹) [e.g. 165 for 24/7 Pass]:");
-        tvA.setTextColor(0xFFFFFFFF);
-        tvA.setPadding(0, 12, 0, 0);
-        l.addView(tvA);
-
-        final EditText etFee = new EditText(this);
-        etFee.setHint("Amount (₹)");
-        etFee.setText("165");
-        etFee.setTextColor(0xFFFFFFFF);
-        etFee.setHintTextColor(0xFFB0BEC5);
+        final EditText etFee = createDialogEditText(this, "Subscription Plan Fee (₹):", "165", l);
         etFee.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        l.addView(etFee);
 
-        TextView tvD = new TextView(this);
-        tvD.setText("Validity / Note (e.g. 24 Hrs Unlimited):");
-        tvD.setTextColor(0xFFFFFFFF);
-        tvD.setPadding(0, 12, 0, 0);
-        l.addView(tvD);
-
-        final EditText etNote = new EditText(this);
-        etNote.setHint("Plan Validity / Note");
-        etNote.setText("24H Pass");
-        etNote.setTextColor(0xFFFFFFFF);
-        etNote.setHintTextColor(0xFFB0BEC5);
-        l.addView(etNote);
+        final EditText etNote = createDialogEditText(this, "Validity / Note:", "24H Pass", l);
 
         b.setView(l);
         b.setPositiveButton("Activate Plan Now", (d, w) -> {
@@ -674,8 +631,8 @@ public class MainActivity extends AppCompatActivity {
 
                 updateLiveDashboardMetrics();
                 persistShiftStateToStorage();
-                appendTripRecordToCSVFile("SUB_PLAN_" + plat + "_" + actTime, fee);
-                logToTerminal("SUB [" + plat + "] ₹" + String.format(Locale.US, "%.0f", fee) + " @" + actTime);
+                appendTripRecordToCSVFile("SUB_PLAN_" + plat, fee);
+                logToTerminal("SUB [" + plat + "] ₹" + String.format(Locale.US, "%.0f", fee));
             } catch (Exception e) {
                 Toast.makeText(this, "Check subscription fee input.", Toast.LENGTH_SHORT).show();
             }
@@ -694,41 +651,15 @@ public class MainActivity extends AppCompatActivity {
         l.setOrientation(LinearLayout.VERTICAL);
         l.setPadding(35, 15, 35, 15);
 
-        TextView tvP = new TextView(this);
-        tvP.setText("Platform / Category:");
-        tvP.setTextColor(0xFFFFFFFF);
-        l.addView(tvP);
-
         ArrayList<String> cats = new ArrayList<>(speechPlatformsList);
         cats.add("GENERAL / TOLL / TEA");
         final Spinner spnCat = new Spinner(this);
         spnCat.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, cats));
         l.addView(spnCat);
 
-        TextView tvHeadLbl = new TextView(this);
-        tvHeadLbl.setText("Expense Head (e.g. Uber Hidden Charge, Toll, Tea):");
-        tvHeadLbl.setTextColor(0xFFFFFFFF);
-        tvHeadLbl.setPadding(0, 10, 0, 0);
-        l.addView(tvHeadLbl);
-
-        final EditText etLabel = new EditText(this);
-        etLabel.setHint("e.g. Hidden Charge / Toll / Tea");
-        etLabel.setTextColor(0xFFFFFFFF);
-        etLabel.setHintTextColor(0xFFB0BEC5);
-        l.addView(etLabel);
-
-        TextView tvAmtLbl = new TextView(this);
-        tvAmtLbl.setText("Amount (₹):");
-        tvAmtLbl.setTextColor(0xFFFFFFFF);
-        tvAmtLbl.setPadding(0, 10, 0, 0);
-        l.addView(tvAmtLbl);
-
-        final EditText etAmt = new EditText(this);
-        etAmt.setHint("Enter Amount (₹)");
-        etAmt.setTextColor(0xFFFFFFFF);
-        etAmt.setHintTextColor(0xFFB0BEC5);
+        final EditText etLabel = createDialogEditText(this, "Expense Head (e.g. Toll, Tea):", "", l);
+        final EditText etAmt = createDialogEditText(this, "Amount (₹):", "", l);
         etAmt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        l.addView(etAmt);
 
         b.setView(l);
         b.setPositiveButton("Save Expense", (d, w) -> {
@@ -747,7 +678,7 @@ public class MainActivity extends AppCompatActivity {
                 updateLiveDashboardMetrics();
                 persistShiftStateToStorage();
                 logToTerminal("EXP [" + cat + ":" + lbl + "] ₹" + String.format(Locale.US, "%.0f", amt));
-                appendTripRecordToCSVFile("EXP_" + cat + "_" + lbl.toUpperCase().replaceAll("\\s+", "_"), amt);
+                appendTripRecordToCSVFile("EXP_" + cat, amt);
             } catch (Exception ignored) {}
         });
         b.setNegativeButton("Cancel", (d, w) -> d.dismiss());
@@ -755,9 +686,6 @@ public class MainActivity extends AppCompatActivity {
         activeDialog.show();
     }
 
-    // ==========================================
-    // SHIFT START DIALOG
-    // ==========================================
     private void showShiftStartDialog() {
         dismissActiveDialogSafely();
         AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
@@ -785,11 +713,11 @@ public class MainActivity extends AppCompatActivity {
         builder.setView(layout);
         builder.setPositiveButton("Start Live Engine", (dialog, which) -> {
             try {
-                vehicleOdoBaseline = Double.parseDouble(etStartOdo.getText().toString().trim());
-                currentFuelPercent = Double.parseDouble(etFuelLevelPct.getText().toString().trim());
+                vehicleOdoBaseline = parseDoubleSafe(etStartOdo.getText().toString().trim(), vehicleOdoBaseline);
+                currentFuelPercent = parseDoubleSafe(etFuelLevelPct.getText().toString().trim(), estimatedFuelPct);
                 if (currentFuelPercent > 100.0) currentFuelPercent = 100.0;
                 if (currentFuelPercent < 0.0) currentFuelPercent = 0.0;
-                dailyNetIncomeGoal = Double.parseDouble(etTargetProfit.getText().toString().trim());
+                dailyNetIncomeGoal = parseDoubleSafe(etTargetProfit.getText().toString().trim(), dailyNetIncomeGoal);
 
                 double fullTankValueRs = fuelCapacity * fuelRatePerUnit;
                 shiftStartFuelValueRs = fullTankValueRs * (currentFuelPercent / 100.0);
@@ -816,8 +744,7 @@ public class MainActivity extends AppCompatActivity {
                 persistShiftStateToStorage();
                 refreshSystemButtonUI();
 
-                logToTerminal("SHIFT START | Odo:" + String.format(Locale.US, "%.0f", vehicleOdoBaseline)
-                        + " | Fuel:₹" + String.format(Locale.US, "%.0f", shiftStartFuelValueRs));
+                logToTerminal("SHIFT START | Odo:" + String.format(Locale.US, "%.0f", vehicleOdoBaseline));
             } catch (Exception e) {
                 Toast.makeText(this, "Please check numeric inputs.", Toast.LENGTH_SHORT).show();
             }
@@ -827,9 +754,6 @@ public class MainActivity extends AppCompatActivity {
         activeDialog.show();
     }
 
-    // ==========================================
-    // 30-DAY FINANCIAL, TYRE & FEASIBILITY ENGINE
-    // ==========================================
     private double getTotalShiftKm() {
         return accumulatedDistanceKm + dryRunDistanceKm;
     }
@@ -962,11 +886,7 @@ public class MainActivity extends AppCompatActivity {
               .append(verdict).append(" (₹").append(String.format(Locale.US, "%.0f", platNet)).append(")");
         }
 
-        if (sb.length() == 0) {
-            tvPlatformFeasibility.setText("PLATFORM FEASIBILITY: Ready");
-        } else {
-            tvPlatformFeasibility.setText(sb.toString());
-        }
+        tvPlatformFeasibility.setText(sb.length() == 0 ? "PLATFORM FEASIBILITY: Ready" : sb.toString());
     }
 
     private double getMinBreakEvenRatePerKm() {
@@ -977,7 +897,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateFeasibilityRangeChart() {
         double minBreakEvenPerKm = getMinBreakEvenRatePerKm();
-
         double maxKm150 = minBreakEvenPerKm > 0 ? (150.0 / minBreakEvenPerKm) : 0;
         double maxKm280 = minBreakEvenPerKm > 0 ? (280.0 / minBreakEvenPerKm) : 0;
         double maxKm480 = minBreakEvenPerKm > 0 ? (480.0 / minBreakEvenPerKm) : 0;
@@ -988,19 +907,16 @@ public class MainActivity extends AppCompatActivity {
                     "INCLUDING PICKUP & DROP MAX KM -> ₹150: %.1fkm | ₹280: %.1fkm | ₹480: %.1fkm | ₹500: %.1fkm",
                     maxKm150, maxKm280, maxKm480, maxKm500));
         }
-
         if (tvRange1to3 != null) {
             tvRange1to3.setText(String.format(Locale.US, "1–3 km\nMin: ₹%.0f–%.0f\nCur: ₹%.0f–%.0f",
                     Math.ceil(1.0 * minBreakEvenPerKm), Math.ceil(3.0 * minBreakEvenPerKm),
                     Math.round(1.0 * currentRatePerKm), Math.round(3.0 * currentRatePerKm)));
         }
-
         if (tvRange4to6 != null) {
             tvRange4to6.setText(String.format(Locale.US, "4–6 km\nMin: ₹%.0f–%.0f\nCur: ₹%.0f–%.0f",
                     Math.ceil(4.0 * minBreakEvenPerKm), Math.ceil(6.0 * minBreakEvenPerKm),
                     Math.round(4.0 * currentRatePerKm), Math.round(6.0 * currentRatePerKm)));
         }
-
         if (tvRange7to10 != null) {
             tvRange7to10.setText(String.format(Locale.US, "7–10 km\nMin: ₹%.0f–%.0f\nCur: ₹%.0f–%.0f",
                     Math.ceil(7.0 * minBreakEvenPerKm), Math.ceil(10.0 * minBreakEvenPerKm),
@@ -1025,9 +941,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ==========================================
-    // CENTRAL CONFIG HUB
-    // ==========================================
     private void showCentralConfigLandingMenu() {
         dismissActiveDialogSafely();
         AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
@@ -1039,66 +952,19 @@ public class MainActivity extends AppCompatActivity {
         mainLayout.setPadding(40, 25, 40, 25);
         scroll.addView(mainLayout);
 
-        Button btnVeh = new Button(this);
-        btnVeh.setText("1. Vehicle, Tyres & Refill");
-        btnVeh.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF006064));
-        btnVeh.setTextColor(0xFFFFFFFF);
-        btnVeh.setOnClickListener(v -> showVehicleManagerWizard(false));
-        mainLayout.addView(btnVeh);
-
-        Button btnExp = new Button(this);
-        btnExp.setText("2. Fixed Monthly/Daily Expenses & EMIs");
-        btnExp.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF388E3C));
-        btnExp.setTextColor(0xFFFFFFFF);
-        btnExp.setOnClickListener(v -> showExpensesManagerWizard());
-        mainLayout.addView(btnExp);
-
-        Button btnApps = new Button(this);
-        btnApps.setText("3. Manage Platforms (Uber, Rapido...)");
-        btnApps.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFE65100));
-        btnApps.setTextColor(0xFFFFFFFF);
-        btnApps.setOnClickListener(v -> showPlatformsManagerWizard());
-        mainLayout.addView(btnApps);
-
-        Button btnFileMgr = new Button(this);
-        btnFileMgr.setText("4. CSV File Manager (Load / Backup / Rename / Del)");
-        btnFileMgr.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF4527A0));
-        btnFileMgr.setTextColor(0xFFFFFFFF);
-        btnFileMgr.setOnClickListener(v -> showCsvFileManagerDialog());
-        mainLayout.addView(btnFileMgr);
-
-        Button btnFilePerm = new Button(this);
-        btnFilePerm.setText(hasFullFileAccessPermission()
-                ? "5. File Storage Permission: GRANTED"
-                : "5. Grant File Storage Permission (All Files)");
-        btnFilePerm.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
-                hasFullFileAccessPermission() ? 0xFF2E7D32 : 0xFFD84315));
-        btnFilePerm.setTextColor(0xFFFFFFFF);
-        btnFilePerm.setOnClickListener(v -> promptForAllFilesAccessPermission());
-        mainLayout.addView(btnFilePerm);
-
-        Button btnDemo = new Button(this);
-        btnDemo.setText("6. Use Demo Vehicle Setup");
-        btnDemo.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF283593));
-        btnDemo.setTextColor(0xFFFFFFFF);
-        btnDemo.setOnClickListener(v -> {
+        addConfigButton(mainLayout, "1. Vehicle, Tyres & Refill", 0xFF006064, v -> showVehicleManagerWizard(false));
+        addConfigButton(mainLayout, "2. Fixed Monthly/Daily Expenses & EMIs", 0xFF388E3C, v -> showExpensesManagerWizard());
+        addConfigButton(mainLayout, "3. Manage Platforms (Uber, Rapido...)", 0xFFE65100, v -> showPlatformsManagerWizard());
+        addConfigButton(mainLayout, "4. CSV File Manager (Load / Backup / Rename / Del)", 0xFF4527A0, v -> showCsvFileManagerDialog());
+        addConfigButton(mainLayout, hasFullFileAccessPermission() ? "5. File Storage Permission: GRANTED" : "5. Grant File Storage Permission (All Files)",
+                hasFullFileAccessPermission() ? 0xFF2E7D32 : 0xFFD84315, v -> promptForAllFilesAccessPermission());
+        addConfigButton(mainLayout, "6. Use Demo Vehicle Setup", 0xFF283593, v -> {
             dismissActiveDialogSafely();
             applyDemoProfileSetup();
+            Toast.makeText(this, "Demo Loaded: KL01DEMO01", Toast.LENGTH_SHORT).show();
         });
-        mainLayout.addView(btnDemo);
-
-        Button btnFullReset = new Button(this);
-        btnFullReset.setText("7. Full Reset (Delete All CSV & Shift Data)");
-        btnFullReset.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFB71C1C));
-        btnFullReset.setTextColor(0xFFFFFFFF);
-        btnFullReset.setOnClickListener(v -> confirmAndExecuteFullReset());
-        mainLayout.addView(btnFullReset);
-
-        Button btnDisclaimer = new Button(this);
-        btnDisclaimer.setText("8. View Terms & Disclaimer");
-        btnDisclaimer.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF424242));
-        btnDisclaimer.setTextColor(0xFFFFFFFF);
-        btnDisclaimer.setOnClickListener(v -> {
+        addConfigButton(mainLayout, "7. Full Reset (Delete All CSV & Shift Data)", 0xFFB71C1C, v -> confirmAndExecuteFullReset());
+        addConfigButton(mainLayout, "8. View Terms & Disclaimer", 0xFF424242, v -> {
             dismissActiveDialogSafely();
             activeDialog = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
                     .setTitle("Terms & Disclaimer")
@@ -1107,13 +973,20 @@ public class MainActivity extends AppCompatActivity {
                     .create();
             activeDialog.show();
         });
-        mainLayout.addView(btnDisclaimer);
 
         builder.setView(scroll);
         builder.setNegativeButton("Close", (dialog, which) -> dialog.dismiss());
-
         activeDialog = builder.create();
         activeDialog.show();
+    }
+
+    private void addConfigButton(LinearLayout parent, String text, int colorHex, View.OnClickListener listener) {
+        Button btn = new Button(this);
+        btn.setText(text);
+        btn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorHex));
+        btn.setTextColor(0xFFFFFFFF);
+        btn.setOnClickListener(listener);
+        parent.addView(btn);
     }
 
     private void showCsvFileManagerDialog() {
@@ -1121,14 +994,11 @@ public class MainActivity extends AppCompatActivity {
         File dir = getStorageDirectory();
         File[] files = dir.listFiles((d, name) -> name.endsWith(".csv"));
         if (files == null || files.length == 0) {
-            Toast.makeText(this, "No CSV files found in " + dir.getAbsolutePath(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "No CSV files found.", Toast.LENGTH_SHORT).show();
             return;
         }
-
         String[] names = new String[files.length];
-        for (int i = 0; i < files.length; i++) {
-            names[i] = files[i].getName();
-        }
+        for (int i = 0; i < files.length; i++) names[i] = files[i].getName();
 
         activeDialog = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
                 .setTitle("Select CSV File (" + dir.getName() + ")")
@@ -1140,7 +1010,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void showSingleCsvActionDialog(final File targetFile) {
         dismissActiveDialogSafely();
-        String[] actions = {"Load Vehicle From This CSV", "Backup CSV (Create Timestamped Copy)", "Rename CSV File", "Delete CSV File", "Share / Export CSV"};
+        String[] actions = {"Load Vehicle From This CSV", "Backup CSV", "Rename CSV File", "Delete CSV File", "Share / Export CSV"};
         activeDialog = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
                 .setTitle(targetFile.getName())
                 .setItems(actions, (d, which) -> {
@@ -1171,14 +1041,12 @@ public class MainActivity extends AppCompatActivity {
                  FileOutputStream out = new FileOutputStream(backupFile)) {
                 byte[] buf = new byte[4096];
                 int len;
-                while ((len = in.read(buf)) > 0) {
-                    out.write(buf, 0, len);
-                }
+                while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
             }
             logToTerminal("BACKUP: " + backupFile.getName());
-            Toast.makeText(this, "Backup created: " + backupFile.getName(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Backup created: " + backupFile.getName(), Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
-            Toast.makeText(this, "Backup failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Backup failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -1197,15 +1065,10 @@ public class MainActivity extends AppCompatActivity {
                     if (sourceFile.renameTo(destFile)) {
                         if (clean.startsWith("garuda_yana_") && !clean.equals("garuda_yana_TEMPLATE")) {
                             regNumber = clean.replace("garuda_yana_", "").toUpperCase();
-                            if (shiftPrefs != null) {
-                                shiftPrefs.edit().putString("selectedVehicleReg", regNumber).apply();
-                            }
+                            if (shiftPrefs != null) shiftPrefs.edit().putString("selectedVehicleReg", regNumber).apply();
                             refreshSystemButtonUI();
                         }
-                        logToTerminal("RENAMED: " + destFile.getName());
                         Toast.makeText(this, "Renamed to " + destFile.getName(), Toast.LENGTH_SHORT).show();
-                    } else {
-                        Toast.makeText(this, "Rename failed. Check File Permission.", Toast.LENGTH_SHORT).show();
                     }
                 })
                 .setNegativeButton("Cancel", (d, w) -> d.dismiss())
@@ -1220,15 +1083,12 @@ public class MainActivity extends AppCompatActivity {
                 .setMessage("Permanently delete " + targetFile.getName() + "?")
                 .setPositiveButton("Delete", (d, w) -> {
                     if (targetFile.delete()) {
-                        logToTerminal("DELETED: " + targetFile.getName());
                         Toast.makeText(this, "Deleted " + targetFile.getName(), Toast.LENGTH_SHORT).show();
                         if (targetFile.getName().equals("garuda_yana_" + regNumber + ".csv")) {
                             regNumber = "";
                             vehicleName = "";
                             ensureTemplateAndLoadVehicleProfile();
                         }
-                    } else {
-                        Toast.makeText(this, "Delete failed. Grant All Files Access in Config.", Toast.LENGTH_LONG).show();
                     }
                 })
                 .setNegativeButton("Cancel", (d, w) -> d.dismiss())
@@ -1240,7 +1100,7 @@ public class MainActivity extends AppCompatActivity {
         dismissActiveDialogSafely();
         activeDialog = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
                 .setTitle("Confirm Full Reset")
-                .setMessage("This will delete all saved CSV files and reset shift metrics, then recreate a fresh CSV template. Continue?")
+                .setMessage("Delete all CSV files and reset shift metrics?")
                 .setPositiveButton("Reset Everything", (d, w) -> {
                     if (isTripStarted) stopGPSTrackingEngine();
                     stopIdlePassiveTrackingEngine();
@@ -1268,7 +1128,6 @@ public class MainActivity extends AppCompatActivity {
                     clearPersistedShiftState();
                     regNumber = "";
                     vehicleName = "";
-                    if (tvTerminalLog != null) tvTerminalLog.setText("Full Reset Completed. Fresh template loaded.\n");
                     ensureTemplateAndLoadVehicleProfile();
                 })
                 .setNegativeButton("Cancel", (d, w) -> d.dismiss())
@@ -1288,148 +1147,55 @@ public class MainActivity extends AppCompatActivity {
         mainContainer.setPadding(40, 25, 40, 25);
         scrollWrapper.addView(mainContainer);
 
-        File dir = getStorageDirectory();
-        File[] files = dir.listFiles((dir1, name) ->
-                name.startsWith("garuda_yana_")
-                        && !name.contains("_BACKUP_")
-                        && !name.equals(TEMPLATE_FILE_NAME)
-                        && name.endsWith(".csv"));
-        final ArrayList<String> registeredVehicles = new ArrayList<>();
-        if (files != null) {
-            for (File f : files) {
-                String id = f.getName().replace("garuda_yana_", "").replace(".csv", "");
-                if (!id.isEmpty()) registeredVehicles.add(id);
-            }
-        }
-
-        if (!forceNewRegistration && registeredVehicles.size() > 1) {
-            Button btnSwitch = new Button(this);
-            btnSwitch.setText("Switch Vehicle Profile (" + registeredVehicles.size() + " Saved)");
-            btnSwitch.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF006064));
-            btnSwitch.setTextColor(0xFFFFFFFF);
-            btnSwitch.setOnClickListener(v -> {
-                dismissActiveDialogSafely();
-                AlertDialog.Builder selectBox = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-                selectBox.setTitle("Select Vehicle CSV Profile");
-                String[] array = registeredVehicles.toArray(new String[0]);
-                selectBox.setItems(array, (dialogInterface, index) -> {
-                    parseAdvancedVehicleCSV(new File(getStorageDirectory(), "garuda_yana_" + array[index] + ".csv"));
-                    Toast.makeText(this, "Switched to: " + array[index], Toast.LENGTH_SHORT).show();
-                });
-                selectBox.setNegativeButton("Cancel", (d, w) -> d.dismiss());
-                activeDialog = selectBox.create();
-                activeDialog.show();
-            });
-            mainContainer.addView(btnSwitch);
-        }
-
-        if (!forceNewRegistration && !regNumber.isEmpty()) {
-            Button btnCreateNew = new Button(this);
-            btnCreateNew.setText("+ Register Another Vehicle");
-            btnCreateNew.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF388E3C));
-            btnCreateNew.setTextColor(0xFFFFFFFF);
-            btnCreateNew.setOnClickListener(v -> showVehicleManagerWizard(true));
-            mainContainer.addView(btnCreateNew);
-        }
-
-        Button btnRefill = new Button(this);
-        btnRefill.setText("REFILL TANK (RESET FUEL TO 100%)");
-        btnRefill.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFE65100));
-        btnRefill.setTextColor(0xFFFFFFFF);
-        btnRefill.setOnClickListener(v -> {
-            fuelResetOdoMarker = vehicleOdoBaseline + getTotalShiftKm();
-            currentFuelPercent = 100.0;
-            shiftStartFuelValueRs = fuelCapacity * fuelRatePerUnit;
-            updateLiveDashboardMetrics();
-            persistShiftStateToStorage();
-            saveAdvancedProfileToCSV();
-            appendTripRecordToCSVFile("REFILL_100_PCT", shiftStartFuelValueRs);
-            logToTerminal("REFILL: ₹" + String.format(Locale.US, "%.0f", shiftStartFuelValueRs));
-            Toast.makeText(this, "Tank refilled! Fuel Value calibrated to ₹" + String.format(Locale.US, "%.0f", shiftStartFuelValueRs), Toast.LENGTH_SHORT).show();
-        });
-        mainContainer.addView(btnRefill);
-
-        final EditText etReg = createDialogEditText(this, "Registration Number (CSV Filename):", forceNewRegistration ? "" : regNumber, mainContainer);
+        final EditText etReg = createDialogEditText(this, "Registration Number:", forceNewRegistration ? "" : regNumber, mainContainer);
         final EditText etName = createDialogEditText(this, "Vehicle Name:", forceNewRegistration ? "" : vehicleName, mainContainer);
-        final EditText etOdoBase = createDialogEditText(this, "Current Odometer Base (km):", forceNewRegistration ? "0" : String.format(Locale.US, "%.0f", vehicleOdoBaseline), mainContainer);
-        final EditText etMaxRange = createDialogEditText(this, "Expected Range per Full Tank (km):", forceNewRegistration ? "210" : String.valueOf(maxExpectedRangeKm), mainContainer);
-        final EditText etFuelCap = createDialogEditText(this, "Fuel/CNG Tank Capacity (Liters/kg):", forceNewRegistration ? "9" : String.valueOf(fuelCapacity), mainContainer);
-        final EditText etFuelRate = createDialogEditText(this, "Fuel/CNG Rate per Unit (₹):", forceNewRegistration ? "92" : String.valueOf(fuelRatePerUnit), mainContainer);
-
-        final EditText etTyreCount = createDialogEditText(this, "Total Tyres (incl. Stepney, e.g. 5):", forceNewRegistration ? "5" : String.valueOf(tyreCount), mainContainer);
-        final EditText etTyrePrice = createDialogEditText(this, "Price per Tyre (₹):", forceNewRegistration ? "5500" : String.valueOf(tyreUnitPrice), mainContainer);
-        final EditText etTyreLifeKm = createDialogEditText(this, "Tyre Replacement Life (km, default 30000):", forceNewRegistration ? "30000" : String.valueOf(tyreReplacementKm), mainContainer);
-
-        final EditText etDailyGoal = createDialogEditText(this, "Daily Proposed Net Income Goal (₹):", String.format(Locale.US, "%.0f", dailyNetIncomeGoal), mainContainer);
-        final EditText etExShowroom = createDialogEditText(this, "Vehicle Ex-Showroom Price (₹):", forceNewRegistration ? "750000" : String.valueOf(exShowroomPrice), mainContainer);
-        final EditText etBalance = createDialogEditText(this, "Balance In Hand Now (₹):", forceNewRegistration ? "0" : String.valueOf(balanceInHandNow), mainContainer);
-
-        final EditText etInsurance = createDialogEditText(this, "Annual Insurance Premium (₹):", forceNewRegistration ? "24000" : String.valueOf(insuranceAmount), mainContainer);
-        final Button btnInsDate = new Button(this);
-        btnInsDate.setText("Insurance Expiry: " + (forceNewRegistration ? "Select Date" : insuranceExpiry));
-        btnInsDate.setOnClickListener(v -> showDatePicker(date -> { insuranceExpiry = date; btnInsDate.setText("Insurance Expiry: " + date); }));
-        mainContainer.addView(btnInsDate);
-
-        final EditText etRoadTax = createDialogEditText(this, "Annual Road Tax Amount (₹):", forceNewRegistration ? "8000" : String.valueOf(roadTaxAmount), mainContainer);
-        final Button btnRoadTaxDate = new Button(this);
-        btnRoadTaxDate.setText("Road Tax Expiry: " + (forceNewRegistration ? "Select Date" : roadTaxExpiry));
-        btnRoadTaxDate.setOnClickListener(v -> showDatePicker(date -> { roadTaxExpiry = date; btnRoadTaxDate.setText("Road Tax Expiry: " + date); }));
-        mainContainer.addView(btnRoadTaxDate);
-
-        final EditText etPollution = createDialogEditText(this, "Annual Pollution Cost (₹):", forceNewRegistration ? "500" : String.valueOf(pollutionAmount), mainContainer);
-        final Button btnPollutionDate = new Button(this);
-        btnPollutionDate.setText("Pollution Expiry: " + (forceNewRegistration ? "Select Date" : pollutionExpiry));
-        btnPollutionDate.setOnClickListener(v -> showDatePicker(date -> { pollutionExpiry = date; btnPollutionDate.setText("Pollution Expiry: " + date); }));
-        mainContainer.addView(btnPollutionDate);
-
-        final EditText etDep = createDialogEditText(this, "Annual Depreciation (%):", forceNewRegistration ? "10" : String.valueOf(depreciationPercent), mainContainer);
-        final Button btnBatteryDate = new Button(this);
-        btnBatteryDate.setText("Battery Installation Date: " + (forceNewRegistration ? "Select Date" : batteryInstallDate));
-        btnBatteryDate.setOnClickListener(v -> showDatePicker(date -> { batteryInstallDate = date; btnBatteryDate.setText("Battery Date: " + date); }));
-        mainContainer.addView(btnBatteryDate);
+        final EditText etOdoBase = createDialogEditText(this, "Current Odometer Base (km):", String.format(Locale.US, "%.0f", vehicleOdoBaseline), mainContainer);
+        final EditText etMaxRange = createDialogEditText(this, "Expected Range per Full Tank (km):", String.valueOf(maxExpectedRangeKm), mainContainer);
+        final EditText etFuelCap = createDialogEditText(this, "Fuel/CNG Tank Capacity:", String.valueOf(fuelCapacity), mainContainer);
+        final EditText etFuelRate = createDialogEditText(this, "Fuel/CNG Rate per Unit (₹):", String.valueOf(fuelRatePerUnit), mainContainer);
+        final EditText etTyreCount = createDialogEditText(this, "Total Tyres:", String.valueOf(tyreCount), mainContainer);
+        final EditText etTyrePrice = createDialogEditText(this, "Price per Tyre (₹):", String.valueOf(tyreUnitPrice), mainContainer);
+        final EditText etTyreLifeKm = createDialogEditText(this, "Tyre Replacement Life (km):", String.valueOf(tyreReplacementKm), mainContainer);
+        final EditText etDailyGoal = createDialogEditText(this, "Daily Net Income Goal (₹):", String.format(Locale.US, "%.0f", dailyNetIncomeGoal), mainContainer);
+        final EditText etExShowroom = createDialogEditText(this, "Ex-Showroom Price (₹):", String.valueOf(exShowroomPrice), mainContainer);
+        final EditText etInsurance = createDialogEditText(this, "Annual Insurance (₹):", String.valueOf(insuranceAmount), mainContainer);
+        final EditText etRoadTax = createDialogEditText(this, "Annual Road Tax (₹):", String.valueOf(roadTaxAmount), mainContainer);
+        final EditText etPollution = createDialogEditText(this, "Annual Pollution (₹):", String.valueOf(pollutionAmount), mainContainer);
+        final EditText etDep = createDialogEditText(this, "Annual Depreciation (%):", String.valueOf(depreciationPercent), mainContainer);
 
         builder.setView(scrollWrapper);
-        builder.setPositiveButton(forceNewRegistration ? "Save & Start" : "Save Profile", (dialog, which) -> {
+        builder.setPositiveButton("Save Profile", (dialog, which) -> {
             String inputReg = etReg.getText().toString().trim().toUpperCase().replaceAll("[^A-Z0-9_-]", "");
             String inputName = etName.getText().toString().trim();
             if (inputReg.isEmpty()) inputReg = "KL01CAB01";
             if (inputName.isEmpty()) inputName = "Cab Vehicle";
-            try {
-                if (forceNewRegistration) {
-                    expenseFleetList.clear();
-                }
-                regNumber = inputReg;
-                vehicleName = inputName;
-                vehicleOdoBaseline = parseDoubleSafe(etOdoBase.getText().toString().trim(), vehicleOdoBaseline);
-                maxExpectedRangeKm = parseDoubleSafe(etMaxRange.getText().toString().trim(), maxExpectedRangeKm);
-                fuelCapacity = parseDoubleSafe(etFuelCap.getText().toString().trim(), fuelCapacity);
-                fuelRatePerUnit = parseDoubleSafe(etFuelRate.getText().toString().trim(), fuelRatePerUnit);
-                tyreCount = parseIntSafe(etTyreCount.getText().toString().trim(), tyreCount);
-                tyreUnitPrice = parseDoubleSafe(etTyrePrice.getText().toString().trim(), tyreUnitPrice);
-                tyreReplacementKm = parseDoubleSafe(etTyreLifeKm.getText().toString().trim(), tyreReplacementKm);
-                dailyNetIncomeGoal = parseDoubleSafe(etDailyGoal.getText().toString().trim(), dailyNetIncomeGoal);
-                exShowroomPrice = parseDoubleSafe(etExShowroom.getText().toString().trim(), exShowroomPrice);
-                balanceInHandNow = parseDoubleSafe(etBalance.getText().toString().trim(), balanceInHandNow);
-                insuranceAmount = parseDoubleSafe(etInsurance.getText().toString().trim(), insuranceAmount);
-                roadTaxAmount = parseDoubleSafe(etRoadTax.getText().toString().trim(), roadTaxAmount);
-                pollutionAmount = parseDoubleSafe(etPollution.getText().toString().trim(), pollutionAmount);
-                depreciationPercent = parseIntSafe(etDep.getText().toString().trim(), depreciationPercent);
 
-                if (shiftPrefs != null) {
-                    shiftPrefs.edit().putString("selectedVehicleReg", regNumber).apply();
-                }
-                shiftStartFuelValueRs = (fuelCapacity * fuelRatePerUnit) * (estimateCurrentFuelPercentage() / 100.0);
-                updateLiveDashboardMetrics();
-                persistShiftStateToStorage();
-                saveAdvancedProfileToCSV();
-                refreshSystemButtonUI();
-                Toast.makeText(this, "Vehicle profile saved: " + regNumber, Toast.LENGTH_SHORT).show();
-            } catch (Exception e) {
-                Toast.makeText(this, "Check numeric inputs.", Toast.LENGTH_SHORT).show();
-            }
+            if (forceNewRegistration) expenseFleetList.clear();
+            regNumber = inputReg;
+            vehicleName = inputName;
+            vehicleOdoBaseline = parseDoubleSafe(etOdoBase.getText().toString().trim(), vehicleOdoBaseline);
+            maxExpectedRangeKm = parseDoubleSafe(etMaxRange.getText().toString().trim(), maxExpectedRangeKm);
+            fuelCapacity = parseDoubleSafe(etFuelCap.getText().toString().trim(), fuelCapacity);
+            fuelRatePerUnit = parseDoubleSafe(etFuelRate.getText().toString().trim(), fuelRatePerUnit);
+            tyreCount = parseIntSafe(etTyreCount.getText().toString().trim(), tyreCount);
+            tyreUnitPrice = parseDoubleSafe(etTyrePrice.getText().toString().trim(), tyreUnitPrice);
+            tyreReplacementKm = parseDoubleSafe(etTyreLifeKm.getText().toString().trim(), tyreReplacementKm);
+            dailyNetIncomeGoal = parseDoubleSafe(etDailyGoal.getText().toString().trim(), dailyNetIncomeGoal);
+            exShowroomPrice = parseDoubleSafe(etExShowroom.getText().toString().trim(), exShowroomPrice);
+            insuranceAmount = parseDoubleSafe(etInsurance.getText().toString().trim(), insuranceAmount);
+            roadTaxAmount = parseDoubleSafe(etRoadTax.getText().toString().trim(), roadTaxAmount);
+            pollutionAmount = parseDoubleSafe(etPollution.getText().toString().trim(), pollutionAmount);
+            depreciationPercent = parseIntSafe(etDep.getText().toString().trim(), depreciationPercent);
+
+            if (shiftPrefs != null) shiftPrefs.edit().putString("selectedVehicleReg", regNumber).apply();
+            shiftStartFuelValueRs = (fuelCapacity * fuelRatePerUnit) * (estimateCurrentFuelPercentage() / 100.0);
+            updateLiveDashboardMetrics();
+            persistShiftStateToStorage();
+            saveAdvancedProfileToCSV();
+            refreshSystemButtonUI();
+            Toast.makeText(this, "Saved: " + regNumber, Toast.LENGTH_SHORT).show();
         });
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
-
         activeDialog = builder.create();
         activeDialog.show();
     }
@@ -1462,28 +1228,22 @@ public class MainActivity extends AppCompatActivity {
 
         builder.setView(scrollWrapper);
         builder.setPositiveButton("Save Expense Changes", (dialog, which) -> {
-            try {
-                ArrayList<CustomExpense> bufferList = new ArrayList<>();
-                for (int i = 0; i < expenseContainerLayout.getChildCount(); i++) {
-                    LinearLayout row = (LinearLayout) expenseContainerLayout.getChildAt(i);
-                    String n = ((EditText) row.getChildAt(0)).getText().toString().trim();
-                    String aStr = ((EditText) row.getChildAt(1)).getText().toString().trim();
-                    String p = ((Spinner) row.getChildAt(2)).getSelectedItem().toString();
-                    if (!n.isEmpty() && !aStr.isEmpty()) {
-                        bufferList.add(new CustomExpense(n, Double.parseDouble(aStr), p));
-                    }
+            ArrayList<CustomExpense> bufferList = new ArrayList<>();
+            for (int i = 0; i < expenseContainerLayout.getChildCount(); i++) {
+                LinearLayout row = (LinearLayout) expenseContainerLayout.getChildAt(i);
+                String n = ((EditText) row.getChildAt(0)).getText().toString().trim();
+                String aStr = ((EditText) row.getChildAt(1)).getText().toString().trim();
+                String p = ((Spinner) row.getChildAt(2)).getSelectedItem().toString();
+                if (!n.isEmpty() && !aStr.isEmpty()) {
+                    bufferList.add(new CustomExpense(n, parseDoubleSafe(aStr, 0.0), p));
                 }
-                expenseFleetList.clear();
-                expenseFleetList.addAll(bufferList);
-
-                updateLiveDashboardMetrics();
-                persistShiftStateToStorage();
-                saveAdvancedProfileToCSV();
-                refreshSystemButtonUI();
-                Toast.makeText(this, "Fixed Expenses saved!", Toast.LENGTH_SHORT).show();
-            } catch (Exception e) {
-                Toast.makeText(this, "Error saving expenses.", Toast.LENGTH_SHORT).show();
             }
+            expenseFleetList.clear();
+            expenseFleetList.addAll(bufferList);
+            updateLiveDashboardMetrics();
+            persistShiftStateToStorage();
+            saveAdvancedProfileToCSV();
+            refreshSystemButtonUI();
         });
         builder.setNegativeButton("Close", (dialog, which) -> dialog.dismiss());
         activeDialog = builder.create();
@@ -1501,44 +1261,11 @@ public class MainActivity extends AppCompatActivity {
         mainContainer.setPadding(40, 25, 40, 25);
         scrollWrapper.addView(mainContainer);
 
-        final LinearLayout listContainer = new LinearLayout(this);
-        listContainer.setOrientation(LinearLayout.VERTICAL);
-        mainContainer.addView(listContainer);
-
-        for (String node : speechPlatformsList) {
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setPadding(0, 10, 0, 10);
-            TextView tvN = new TextView(this);
-            tvN.setText(node);
-            tvN.setTextColor(0xFFFFFFFF);
-            tvN.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
-            row.addView(tvN);
-            Button btnDelNode = new Button(this);
-            btnDelNode.setText("X");
-            btnDelNode.setTextColor(0xFFFF5252);
-            btnDelNode.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-            btnDelNode.setOnClickListener(v -> {
-                speechPlatformsList.remove(node);
-                listContainer.removeView(row);
-                saveAdvancedProfileToCSV();
-                refreshQuickPlatformSpinner();
-            });
-            row.addView(btnDelNode);
-            listContainer.addView(row);
-        }
-
-        final EditText etNewAppInput = new EditText(this);
-        etNewAppInput.setHint("Type platform label (e.g. UBER)");
-        etNewAppInput.setTextColor(0xFFFFFFFF);
-        etNewAppInput.setHintTextColor(0xFFB0BEC5);
-        mainContainer.addView(etNewAppInput);
+        final EditText etNewAppInput = createDialogEditText(this, "Add Platform (e.g. UBER):", "", mainContainer);
         Button btnAddApp = new Button(this);
         btnAddApp.setText("+ Insert New Platform");
         btnAddApp.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF006064));
         btnAddApp.setTextColor(0xFFFFFFFF);
-        mainContainer.addView(btnAddApp);
-
         btnAddApp.setOnClickListener(v -> {
             String appLabel = etNewAppInput.getText().toString().trim().toUpperCase();
             if (!appLabel.isEmpty() && !speechPlatformsList.contains(appLabel)) {
@@ -1549,18 +1276,17 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "Added " + appLabel, Toast.LENGTH_SHORT).show();
             }
         });
+        mainContainer.addView(btnAddApp);
 
         builder.setView(scrollWrapper);
         builder.setPositiveButton("Done", (dialog, which) -> dialog.dismiss());
-
         activeDialog = builder.create();
         activeDialog.show();
     }
 
     private void refreshQuickPlatformSpinner() {
         if (spnQuickPlatform == null) return;
-        ArrayAdapter<String> adp = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, speechPlatformsList);
-        spnQuickPlatform.setAdapter(adp);
+        spnQuickPlatform.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, speechPlatformsList));
     }
 
     private void addDynamicExpenseRowEntry(Context ctx, LinearLayout container, CustomExpense expenseData) {
@@ -1572,7 +1298,6 @@ public class MainActivity extends AppCompatActivity {
         etNameInput.setHint("Label (EMI)");
         etNameInput.setText(expenseData.name);
         etNameInput.setTextColor(0xFFFFFFFF);
-        etNameInput.setHintTextColor(0xFFB0BEC5);
         etNameInput.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.2f));
         rowLine.addView(etNameInput);
 
@@ -1581,32 +1306,21 @@ public class MainActivity extends AppCompatActivity {
         etAmtInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         etAmtInput.setText(expenseData.amount <= 0 ? "" : String.valueOf(expenseData.amount));
         etAmtInput.setTextColor(0xFFFFFFFF);
-        etAmtInput.setHintTextColor(0xFFB0BEC5);
         etAmtInput.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.9f));
         rowLine.addView(etAmtInput);
 
         final Spinner spnPeriodInput = new Spinner(ctx);
         String[] opts = {"Daily", "Monthly", "Yearly"};
-        ArrayAdapter<String> adp = new ArrayAdapter<>(ctx, android.R.layout.simple_spinner_item, opts);
-        spnPeriodInput.setAdapter(adp);
+        spnPeriodInput.setAdapter(new ArrayAdapter<>(ctx, android.R.layout.simple_spinner_item, opts));
         for (int i = 0; i < opts.length; i++) {
             if (opts[i].equalsIgnoreCase(expenseData.period)) spnPeriodInput.setSelection(i);
         }
         spnPeriodInput.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.1f));
         rowLine.addView(spnPeriodInput);
 
-        Button btnDel = new Button(ctx);
-        btnDel.setText("X");
-        btnDel.setTextColor(0xFFFF5252);
-        btnDel.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-        btnDel.setOnClickListener(v -> container.removeView(rowLine));
-        rowLine.addView(btnDel);
         container.addView(rowLine);
     }
 
-    // ==========================================
-    // LOCAL CSV PERSISTENCE (SAFE FALLBACK)
-    // ==========================================
     private File getStorageDirectory() {
         try {
             if (hasFullFileAccessPermission()) {
@@ -1616,9 +1330,7 @@ public class MainActivity extends AppCompatActivity {
                     //noinspection ResultOfMethodCallIgnored
                     appDir.mkdirs();
                 }
-                if (appDir.exists() && appDir.canWrite()) {
-                    return appDir;
-                }
+                if (appDir.exists() && appDir.canWrite()) return appDir;
             }
         } catch (Exception ignored) {}
         File extFallback = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
@@ -1627,9 +1339,7 @@ public class MainActivity extends AppCompatActivity {
                 //noinspection ResultOfMethodCallIgnored
                 extFallback.mkdirs();
             }
-            if (extFallback.exists() && extFallback.canWrite()) {
-                return extFallback;
-            }
+            if (extFallback.exists() && extFallback.canWrite()) return extFallback;
         }
         return getFilesDir();
     }
@@ -1657,7 +1367,7 @@ public class MainActivity extends AppCompatActivity {
     private void dispatchShareMasterSheet() {
         File targetFile = new File(getStorageDirectory(), "garuda_yana_" + regNumber + ".csv");
         if (!targetFile.exists()) {
-            Toast.makeText(this, "No CSV file found for " + regNumber, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No CSV file found.", Toast.LENGTH_SHORT).show();
             return;
         }
         shareSpecificFile(targetFile);
@@ -1687,13 +1397,9 @@ public class MainActivity extends AppCompatActivity {
                 .append(insuranceAmount).append(",").append(insuranceExpiry).append(",").append(roadTaxAmount).append(",").append(roadTaxExpiry).append(",")
                 .append(pollutionAmount).append(",").append(pollutionExpiry).append(",").append(depreciationPercent).append(",").append(batteryInstallDate).append(",")
                 .append(fuelResetOdoMarker).append(",");
-        for (String node : speechPlatformsList) {
-            csv.append(node).append(";");
-        }
+        for (String node : speechPlatformsList) csv.append(node).append(";");
         csv.append(speechPlatformsList.isEmpty() ? "EMPTY," : ",");
-        for (CustomExpense exp : expenseFleetList) {
-            csv.append(exp.name).append("#").append(exp.amount).append("#").append(exp.period).append("|");
-        }
+        for (CustomExpense exp : expenseFleetList) csv.append(exp.name).append("#").append(exp.amount).append("#").append(exp.period).append("|");
         csv.append(expenseFleetList.isEmpty() ? "EMPTY," : ",");
         csv.append(tyreCount).append(",").append(tyreUnitPrice).append(",").append(tyreReplacementKm).append(",")
                 .append(dailyNetIncomeGoal).append("\n");
@@ -1769,9 +1475,6 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception ignored) {}
     }
 
-    // ==========================================
-    // PERSISTENT SHIFT STORAGE & TELEMETRY
-    // ==========================================
     private void persistShiftStateToStorage() {
         if (shiftPrefs == null) return;
         shiftPrefs.edit()
@@ -1795,34 +1498,30 @@ public class MainActivity extends AppCompatActivity {
 
     private void restoreShiftStateFromStorage() {
         if (shiftPrefs == null) return;
-        try {
-            Object appStartedObj = shiftPrefs.getAll().get("isAppStarted");
-            boolean savedAppStarted = (appStartedObj instanceof Boolean) && (Boolean) appStartedObj;
-            if (!savedAppStarted) return;
+        Object appStartedObj = shiftPrefs.getAll().get("isAppStarted");
+        boolean savedAppStarted = (appStartedObj instanceof Boolean) && (Boolean) appStartedObj;
+        if (!savedAppStarted) return;
 
-            isAppStarted = true;
-            Object tripStartedObj = shiftPrefs.getAll().get("isTripStarted");
-            isTripStarted = (tripStartedObj instanceof Boolean) && (Boolean) tripStartedObj;
+        isAppStarted = true;
+        Object tripStartedObj = shiftPrefs.getAll().get("isTripStarted");
+        isTripStarted = (tripStartedObj instanceof Boolean) && (Boolean) tripStartedObj;
 
-            accumulatedDistanceKm = parseDoubleSafe(readPrefAsString("accumulatedDistanceKm", "0.0"), 0.0);
-            dryRunDistanceKm = parseDoubleSafe(readPrefAsString("dryRunDistanceKm", "0.0"), 0.0);
-            dailyEarningsSum = parseDoubleSafe(readPrefAsString("dailyEarningsSum", "0.0"), 0.0);
-            dailyOrdersCount = parseIntSafe(readPrefAsString("dailyOrdersCount", "0"), 0);
-            dailySpotExpenses = parseDoubleSafe(readPrefAsString("dailySpotExpenses", "0.0"), 0.0);
-            dailyNetIncomeGoal = parseDoubleSafe(readPrefAsString("dailyNetIncomeGoal", "2000.0"), 2000.0);
-            shiftStartFuelValueRs = parseDoubleSafe(readPrefAsString("shiftStartFuelValueRs", "0.0"), 0.0);
-            currentFuelPercent = parseDoubleSafe(readPrefAsString("currentFuelPercent", "100.0"), 100.0);
-            vehicleOdoBaseline = parseDoubleSafe(readPrefAsString("vehicleOdoBaseline", String.valueOf(vehicleOdoBaseline)), vehicleOdoBaseline);
-            fuelResetOdoMarker = parseDoubleSafe(readPrefAsString("fuelResetOdoMarker", String.valueOf(fuelResetOdoMarker)), fuelResetOdoMarker);
-            totalWaitingTimeMs = parseLongSafe(readPrefAsString("totalWaitingTimeMs", "0"), 0L);
-            tripStopTimestamp = parseLongSafe(readPrefAsString("tripStopTimestamp", "0"), 0L);
+        accumulatedDistanceKm = parseDoubleSafe(readPrefAsString("accumulatedDistanceKm", "0.0"), 0.0);
+        dryRunDistanceKm = parseDoubleSafe(readPrefAsString("dryRunDistanceKm", "0.0"), 0.0);
+        dailyEarningsSum = parseDoubleSafe(readPrefAsString("dailyEarningsSum", "0.0"), 0.0);
+        dailyOrdersCount = parseIntSafe(readPrefAsString("dailyOrdersCount", "0"), 0);
+        dailySpotExpenses = parseDoubleSafe(readPrefAsString("dailySpotExpenses", "0.0"), 0.0);
+        dailyNetIncomeGoal = parseDoubleSafe(readPrefAsString("dailyNetIncomeGoal", "2000.0"), 2000.0);
+        shiftStartFuelValueRs = parseDoubleSafe(readPrefAsString("shiftStartFuelValueRs", "0.0"), 0.0);
+        currentFuelPercent = parseDoubleSafe(readPrefAsString("currentFuelPercent", "100.0"), 100.0);
+        vehicleOdoBaseline = parseDoubleSafe(readPrefAsString("vehicleOdoBaseline", String.valueOf(vehicleOdoBaseline)), vehicleOdoBaseline);
+        fuelResetOdoMarker = parseDoubleSafe(readPrefAsString("fuelResetOdoMarker", String.valueOf(fuelResetOdoMarker)), fuelResetOdoMarker);
+        totalWaitingTimeMs = parseLongSafe(readPrefAsString("totalWaitingTimeMs", "0"), 0L);
+        tripStopTimestamp = parseLongSafe(readPrefAsString("tripStopTimestamp", "0"), 0L);
 
-            String savedLog = readPrefAsString("terminalLog", "");
-            if (!savedLog.isEmpty() && tvTerminalLog != null) {
-                tvTerminalLog.setText(savedLog);
-            }
-        } catch (Exception ignored) {
-            clearPersistedShiftState();
+        String savedLog = readPrefAsString("terminalLog", "");
+        if (!savedLog.isEmpty() && tvTerminalLog != null) {
+            tvTerminalLog.setText(savedLog);
         }
     }
 
@@ -1914,12 +1613,10 @@ public class MainActivity extends AppCompatActivity {
                 @Override public void onProviderDisabled(@NonNull String p) {}
                 @Override public void onProviderEnabled(@NonNull String p) {}
             };
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && locationManager != null) {
                 locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2500, 5, locationListener);
             }
-        } catch (Exception e) {
-            logToTerminal("[ERR] GPS");
-        }
+        } catch (Exception ignored) {}
     }
 
     private void stopGPSTrackingEngine() {
@@ -1957,7 +1654,7 @@ public class MainActivity extends AppCompatActivity {
     };
 
     private void processLiveLocationTelemetry(Location location, boolean isInsideActiveTrip) {
-        if (!isAppStarted) return;
+        if (!isAppStarted || location == null) return;
         if (!isInsideActiveTrip && isTripStarted) return;
 
         double lat = location.getLatitude();
@@ -1967,13 +1664,9 @@ public class MainActivity extends AppCompatActivity {
         if (previousLocation != null) {
             double deltaMeters = location.distanceTo(previousLocation);
             double deltaKm = deltaMeters / 1000.0;
-
             if (deltaMeters >= 5.0 && deltaKm <= 25.0) {
-                if (isInsideActiveTrip) {
-                    accumulatedDistanceKm += deltaKm;
-                } else {
-                    dryRunDistanceKm += deltaKm;
-                }
+                if (isInsideActiveTrip) accumulatedDistanceKm += deltaKm;
+                else dryRunDistanceKm += deltaKm;
                 previousLocation = location;
                 updateLiveDashboardMetrics();
                 persistShiftStateToStorage();
@@ -2061,26 +1754,17 @@ public class MainActivity extends AppCompatActivity {
         return et;
     }
 
-    private void showDatePicker(DateCallback callback) {
-        Calendar c = Calendar.getInstance();
-        new DatePickerDialog(this, (view, year, month, dayOfMonth) ->
-                callback.onDateSelected(String.format(Locale.US, "%02d/%02d/%d", dayOfMonth, (month + 1), year)),
-                c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show();
-    }
-
-    interface DateCallback {
-        void onDateSelected(String date);
-    }
-
-    private void calculateRemainingWorkingDays() {
+    private void calculateRemainingWorkingDaysSafe() {
         if (tvDaysLeft == null) return;
-        LocalDate today = java.time.LocalDate.now();
-        LocalDate endOfMonth = today.withDayOfMonth(today.lengthOfMonth());
+        Calendar cal = Calendar.getInstance();
+        int todayDay = cal.get(Calendar.DAY_OF_MONTH);
+        int maxDay = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
         int workingDaysLeft = 0;
-        LocalDate current = today;
-        while (!current.isAfter(endOfMonth)) {
-            if (current.getDayOfWeek() != DayOfWeek.SUNDAY) workingDaysLeft++;
-            current = current.plusDays(1);
+        for (int d = todayDay; d <= maxDay; d++) {
+            cal.set(Calendar.DAY_OF_MONTH, d);
+            if (cal.get(Calendar.DAY_OF_WEEK) != Calendar.SUNDAY) {
+                workingDaysLeft++;
+            }
         }
         tvDaysLeft.setText("Days Left: " + workingDaysLeft);
     }
